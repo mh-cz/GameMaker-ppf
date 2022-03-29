@@ -1,8 +1,12 @@
 function ppf_init() {
 	
-	globalvar ppf_data;
-	ppf_data = {
-	
+	globalvar ppf;
+	ppf = {
+		
+		CELL_SIZE: 32,
+		SOLID_OBJ: obj_solid,
+		HIDE_NODES: true,
+		
 		STATE: {
 			WALK: 0,
 			JUMP: 1,
@@ -10,21 +14,23 @@ function ppf_init() {
 		
 		AI: {
 			Basic: {
-				HITBOX_WIDTH: 24,
-				HITBOX_HEIGHT: 24,
-				SPEED: 3,
+				ACTIVE: true,
+				HITBOX_WIDTH: 36,
+				HITBOX_HEIGHT: 36,
+				SPEED: 4,
 				JUMP: 10,
 				GRAVITY: 0.3,
 				MAX_FALL_HEIGHT: 32 * 5,
 				CAN_JUMP: true,
-				DRAW: true,
-				COLOR: c_lime,
-				ACTIVE: true,
-				WAIT_BEFORE_JUMP: 0.05 * room_speed,
-				WAIT_AFTER_LANDING: 0.1 * room_speed,
+				WAIT_BEFORE_JUMP: 0 * room_speed,
+				WAIT_AFTER_LANDING: 0 * room_speed,
+				DEBUG_DRAW: false,
+				DEBUG_DRAW_COLOR: c_lime,
+				DEBUG_DRAW_AI_PATH: true,
 			},
-		
+			
 			Big_n_Slow: {
+				ACTIVE: false,
 				HITBOX_WIDTH: 24,
 				HITBOX_HEIGHT: 24,
 				SPEED: 1.5,
@@ -32,11 +38,10 @@ function ppf_init() {
 				GRAVITY: 0.3,
 				MAX_FALL_HEIGHT: 32 * 4,
 				CAN_JUMP: true,
-				DRAW: false,
-				COLOR: c_orange,
-				ACTIVE: false,
-				WAIT_BEFORE_JUMP: 0.2,
-				WAIT_AFTER_LANDING: 0.3,
+				WAIT_BEFORE_JUMP: 0.2 * room_speed,
+				WAIT_AFTER_LANDING: 0.3 * room_speed,
+				DEBUG_DRAW: false,
+				DEBUG_DRAW_COLOR: c_orange,
 			},
 		},
 	};
@@ -44,7 +49,7 @@ function ppf_init() {
 
 #region PPF
 
-function ppf_calc_jump(fx, fy, tx, ty, ai_data, test_jump_tries = 5) {
+function ppf_calc_jump(fx, fy, tx, ty, ai_data, jump_tries = 5) {
 	
 	var spd = abs(ai_data.SPEED);
 	var jump = abs(ai_data.JUMP);
@@ -52,8 +57,8 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, test_jump_tries = 5) {
 	var w = ai_data.HITBOX_WIDTH;
 	var h = ai_data.HITBOX_HEIGHT;
 	
-	test_jump_tries = max(test_jump_tries, 1);
-	var jump_part = jump / test_jump_tries;
+	jump_tries = max(jump_tries, 1);
+	var jump_part = jump / jump_tries;
 	var j = jump_part;
 	
 	var posx = fx;
@@ -75,12 +80,23 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, test_jump_tries = 5) {
 		
 		if posx > fx + abs(tx-fx) and maxy < ty {
 			var col = false;
+			var lastx = fx;
+			var lasty = fy;
+			
 			for(var i = 0, len = array_length(path); i < len; i++) {
 				path[i][0] *= ((tx - fx) / path[i][0]) * (i / len);
 				path[i][0] += fx;
-				if collision_rectangle(path[i][0]-w/2, path[i][1]-h/2, path[i][0]+w/2, path[i][1]+h/2, obj_solid, false, true) {
-					col = true;
-					break;
+				
+				if abs(path[i][0] - lastx) > w/2 
+				or abs(path[i][1] - lasty) > h/2 or true {
+					lastx = path[i][0];
+					lasty = path[i][1];
+					if collision_rectangle(path[i][0]-w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1, 
+										   path[i][0]+w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1-h, 
+										   ppf.SOLID_OBJ, false, true) {
+						col = true;
+						break;
+					}
 				}
 			}
 			if !col break;
@@ -102,60 +118,54 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, test_jump_tries = 5) {
 function ppf_connect_nodes() {
 
 	with(obj_node) {
-		mx = x + 16;
-		my = y + 16;
-		floor_id = collision_point(mx, my+32, obj_solid, false, true);
+		mid_x = x + ppf.CELL_SIZE/2;
+		mid_y = y + ppf.CELL_SIZE/2;
+		floor_id = collision_point(mid_x, mid_y+ppf.CELL_SIZE, ppf.SOLID_OBJ, false, true);
 	}
 	
-	foreach "aidata" in ppf_data.AI as_struct {
+	foreach "aidata" in ppf.AI as_struct {
 		
 		var ai_name = fed.cs.key;
 		var ai_data = aidata;
-		
 		if !ai_data.ACTIVE continue;
 		
+		// clear neighbours
 		with(obj_node) {
 			neig_data[$ ai_name] = [];
 		}
 		
+		// loop through 
 		with(obj_node) {
 			with(obj_node) {
 				if id != other.id {
 				
 					var connect = false;
-					var action = 0; // 0 walk, 1 jump
+					var action = ppf.STATE.WALK;
 					var arr_path = [];
 					
+					// try walk
 					if y == other.y {
-					
-						var ray = raycast(mx, my, other.mx, other.my, obj_solid, 32, 0);
+						var ray = raycast(mid_x, mid_y, other.mid_x, other.mid_y, ppf.SOLID_OBJ, ppf.CELL_SIZE);
 						if ray[0] == noone {
-				
-							if floor_id == other.floor_id or reversed_raycast(mx, my+32, other.mx, other.my+32, obj_solid, 32) {
+							if floor_id == other.floor_id
+							or reversed_raycast(mid_x, mid_y+ppf.CELL_SIZE, other.mid_x, other.mid_y+ppf.CELL_SIZE, ppf.SOLID_OBJ, ppf.CELL_SIZE) {
 								connect = true;
 								action = 0;
 							}
 						}
 					}
 					
+					// try jump
 					if !connect {
-				
-						var fromx = my - other.my < 0 ? mx + sign(other.x - x) * 16 : mx;
-						var fromy = my;
-						var tox = my - other.my > 0 ? other.mx + sign(x - other.x) * 16 : other.mx;
-						var toy = other.my;
-					
-						var ray = raycast(fromx, fromy, tox, toy, obj_solid, 16, 0);
-						if ray[0] == noone {
-							var arr_path = ppf_calc_jump(mx, my, other.mx, other.my, ai_data, 10) {
-								if array_length(arr_path) != 0 {
-									connect = true;
-									action = 1;
-								}
+						var arr_path = ppf_calc_jump(mid_x, mid_y, other.mid_x, other.mid_y, ai_data, 10) {
+							if array_length(arr_path) != 0 {
+								connect = true;
+								action = 1;
 							}
 						}
 					}
-				
+					
+					// add neighbour if connected
 					if connect array_push(neig_data[$ ai_name], [other.id, action, arr_path]);
 				}
 			}
@@ -163,7 +173,7 @@ function ppf_connect_nodes() {
 	}
 }
 
-function ppf_find_path(from_x, from_y, to_x, to_y, name) {
+function ppf_find_path(from_x, from_y, to_x, to_y, ai_name) {
 	
 	if !instance_exists(obj_node) return [];
 	
@@ -172,14 +182,15 @@ function ppf_find_path(from_x, from_y, to_x, to_y, name) {
 	var start_dist = 999999;
 	var end_dist = 999999;
 	
+	// clear nodes
 	with(obj_node) {
 		
 		visited = false;
-		sc = 999999;
+		sc = 999999; // score
 		prev_node = noone;
 		
-		var dist1 = point_distance(x+16, y+16, from_x, from_y);
-		var dist2 = point_distance(x+16, y+16, to_x, to_y);
+		var dist1 = point_distance(mid_x, mid_y, from_x, from_y);
+		var dist2 = point_distance(mid_x, mid_y, to_x, to_y);
 		
 		if dist1 < start_dist {
 			start_dist = dist1;
@@ -192,10 +203,12 @@ function ppf_find_path(from_x, from_y, to_x, to_y, name) {
 		}
 	}
 	
+	// start from this node
 	with(start_node) {
 		sc = 0;
 	}
 	
+	// get node with lowest sc
 	var lowest_score_node = function() {
 		var node = noone;
 		var lowest = 999999;
@@ -207,47 +220,49 @@ function ppf_find_path(from_x, from_y, to_x, to_y, name) {
 		}
 		return node;
 	}
-
+	
+	// try to connect start node with end node
 	while(true) {
 		
 		var node = lowest_score_node();
-		
 		if node == noone return [];
 		else if node == end_node  break;
 
 		node.visited = true;
 		
-		var neig = variable_struct_get(node.neig_data, name);
-		for(var i = 0; i < array_length(neig); i++) {
+		var neigs = node.neig_data[$ ai_name];
+		for(var i = 0; i < array_length(neigs); i++) {
 			
-			var n = neig[i][0];
+			var n = neigs[i][0];
 			if n.visited continue;
+			var curve = neigs[i][2];
 			
-			var pds = point_distance(n.x, n.y, node.x, node.y) * 0.1;
-			if n.y != node.y pds *= 2;
+			var dist = max(point_distance(n.mid_x, n.mid_y, node.mid_x, node.mid_y), array_length(curve));
 			
-			var new_score = node.sc + pds;
+			var new_score = node.sc + dist;
 			if new_score < n.sc {
 				n.sc = new_score;
 				n.prev_node = node;
 			}
 		}
 	}
-
-	var get_path = function(start_node, end_node, name) {
+	
+	// extract the path
+	var get_path = function(start_node, end_node, ai_name) {
 		
+		// reverse cuz it's from end to start
 		var array_reverse = function(arr) {
 			var new_arr = [];
-			var l = 0;
-			for(var i = array_length(arr)-1; i > -1; i--) {
+			for(var l = 0, i = array_length(arr)-1; i > -1; i--) {
 				new_arr[l++] = arr[i];
 			}
 			return new_arr;
 		}
 		
-		var get_prev_node_neighbour_data = function(node, name) {
+		// get data from node connected with the current one
+		var get_prev_node_neighbour_data = function(node, ai_name) {
 			if node.prev_node == noone return [node, 0, []];
-			var prev_node_neig = node.prev_node.neig_data[$ name];
+			var prev_node_neig = node.prev_node.neig_data[$ ai_name];
 			
 			for(var i = 0; i < array_length(prev_node_neig); i++) {
 				if prev_node_neig[i][0] == node return prev_node_neig[i];
@@ -255,18 +270,18 @@ function ppf_find_path(from_x, from_y, to_x, to_y, name) {
 			return [node, 0, []];
 		}
 		
+		// collect nodes and then return
 		var path = [];
 		var p = 0;
-		
 		var node = end_node;
 		while(true) {
-			path[p++] = get_prev_node_neighbour_data(node, name);
+			path[p++] = get_prev_node_neighbour_data(node, ai_name);
 			if node == start_node return array_reverse(path);
 			node = node.prev_node;
 		}
 	}
 	
-	return get_path(start_node, end_node, name);
+	return get_path(start_node, end_node, ai_name);
 }
 
 #endregion
@@ -274,21 +289,30 @@ function ppf_find_path(from_x, from_y, to_x, to_y, name) {
 #region raycasts
 
 // return if object is in the way
-function raycast(x1, y1, x2, y2, obj, step, w) {
+function raycast(x1, y1, x2, y2, obj, step, w = 0) {
 	
 	var len = point_distance(x1, y1, x2, y2);
 	var rot = point_direction(x1, y1, x2, y2);
-	var c = noone;
 	var dcos_ = dcos(rot);
 	var dsin_ = dsin(rot);
 	
+	var c = noone;
 	for(var l = 0; l < len; l += step) {
 	    var xx = x1+dcos_*l;
 	    var yy = y1-dsin_*l;
 		
-	    if w == 0 c = collision_point(xx, yy, obj, false, true);
-		else c = collision_rectangle(xx-w, yy-w, xx+w, yy+w, obj, false, true);
-	    if c != noone return [c, l, x2, y2];
+		if !is_array(obj) {
+			c = (w == 0 
+				? collision_point(xx, yy, obj, false, true)
+				: collision_rectangle(xx-w, yy-w, xx+w, yy+w, obj, false, true));
+			if c != noone return [c, l, x2, y2];
+		}
+		else for(var i = 0; i < array_length(obj); i++) {
+			c = (w == 0 
+				? collision_point(xx, yy, obj[i], false, true)
+				: collision_rectangle(xx-w, yy-w, xx+w, yy+w, obj[i], false, true));
+			if c != noone return [c, l, x2, y2];
+		}
 	}
 
 	return [noone, len, x2, y2];

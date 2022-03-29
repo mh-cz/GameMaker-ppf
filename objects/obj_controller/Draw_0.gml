@@ -4,22 +4,25 @@ with(obj_node) {
 	
 	var yoff = 0;
 	var xoff = 0;
+	visible = !ppf.HIDE_NODES;
 	
-	foreach "ai_data" in ppf_data.AI as_struct {
+	foreach "ai_data" in ppf.AI as_struct {
 		
-		var neig = neig_data[$ fed.cs.key];
+		//var path = ppf_calc_jump(mid_x, mid_y, mouse_x, mouse_y, ai_data, 10);
+		//for(var i = 0; i < array_length(path); i++) draw_circle(path[i][0], path[i][1], 2, true);
 		
-		if !ai_data.DRAW continue;
-		draw_set_color(ai_data.COLOR);
+		var neigs = neig_data[$ fed.cs.key];
+		if !ai_data.DEBUG_DRAW continue;
+		draw_set_color(ai_data.DEBUG_DRAW_COLOR);
 		
-		for(var i = 0; i < array_length(neig); i++) {
+		for(var i = 0; i < array_length(neigs); i++) {
 		
-			var n = neig[i][0];
-			var action = neig[i][1];
-			var curve = neig[i][2];
+			var n = neigs[i][0];
+			var action = neigs[i][1];
+			var curve = neigs[i][2];
 			
 			if action == 0 {
-				draw_line_width(mx+xoff, my+yoff, n.mx+xoff, n.my+yoff, 2);
+				draw_line_width(mid_x+xoff, mid_y+yoff, n.mid_x+xoff, n.mid_y+yoff, 2);
 			}
 			else if action == 1 {
 				for(var c = 1; c < array_length(curve); c++) {
