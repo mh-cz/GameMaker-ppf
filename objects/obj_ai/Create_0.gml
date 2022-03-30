@@ -14,5 +14,6 @@ wait = 0;
 
 vspd = 0;
 hspd = 0;
+continous_hspd = 0;
 on_ground = false;
 jumped = false;

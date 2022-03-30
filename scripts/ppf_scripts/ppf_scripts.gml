@@ -6,6 +6,7 @@ function ppf_init() {
 		CELL_SIZE: 32,
 		SOLID_OBJ: obj_solid,
 		HIDE_NODES: true,
+		DYNAMIC_CONNECTING: 0,
 		
 		STATE: {
 			WALK: 0,
@@ -15,16 +16,16 @@ function ppf_init() {
 		AI: {
 			Basic: {
 				ACTIVE: true,
-				HITBOX_WIDTH: 36,
-				HITBOX_HEIGHT: 36,
-				SPEED: 4,
-				JUMP: 10,
-				GRAVITY: 0.3,
+				HITBOX_WIDTH: 30,
+				HITBOX_HEIGHT: 30,
+				SPEED: 5,
+				JUMP: 14,
+				GRAVITY: 0.6,
 				MAX_FALL_HEIGHT: 32 * 5,
 				CAN_JUMP: true,
 				WAIT_BEFORE_JUMP: 0 * room_speed,
 				WAIT_AFTER_LANDING: 0 * room_speed,
-				DEBUG_DRAW: false,
+				DEBUG_DRAW: true,
 				DEBUG_DRAW_COLOR: c_lime,
 				DEBUG_DRAW_AI_PATH: true,
 			},
@@ -42,8 +43,14 @@ function ppf_init() {
 				WAIT_AFTER_LANDING: 0.3 * room_speed,
 				DEBUG_DRAW: false,
 				DEBUG_DRAW_COLOR: c_orange,
+				DEBUG_DRAW_AI_PATH: true,
 			},
 		},
+		
+		dyn_start_new_cycle: true,
+		dyn_nodes: [],
+		dyn_counter1: 0,
+		dyn_counter2: 0,
 	};
 }
 
@@ -57,9 +64,9 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, jump_tries = 5) {
 	var w = ai_data.HITBOX_WIDTH;
 	var h = ai_data.HITBOX_HEIGHT;
 	
-	jump_tries = max(jump_tries, 1);
-	var jump_part = jump / jump_tries;
-	var j = jump_part;
+	jump_tries = max(sqrt(jump_tries/2), 1);
+	var jlerp = 1 / jump_tries;
+	var j = lerp(0, jump, jlerp * 0.35);
 	
 	var posx = fx;
 	var posy = fy;
@@ -87,10 +94,13 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, jump_tries = 5) {
 				path[i][0] *= ((tx - fx) / path[i][0]) * (i / len);
 				path[i][0] += fx;
 				
-				if abs(path[i][0] - lastx) > w/2 
-				or abs(path[i][1] - lasty) > h/2 or true {
+				if abs(path[i][0] - lastx) > w/3
+				or abs(path[i][1] - lasty) > h/3 {
 					lastx = path[i][0];
 					lasty = path[i][1];
+					
+					//draw_rectangle(path[i][0]-w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1, path[i][0]+w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1-h, true);
+									   
 					if collision_rectangle(path[i][0]-w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1, 
 										   path[i][0]+w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1-h, 
 										   ppf.SOLID_OBJ, false, true) {
@@ -102,8 +112,8 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, jump_tries = 5) {
 			if !col break;
 		}
 		
-		j += jump_part;
-		if j > jump return [];
+		j = lerp(j, jump+1, min(1, j/jump * jlerp));
+		if j >= jump return [];
 		
 		posx = fx;
 		posy = fy;
@@ -116,7 +126,7 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, jump_tries = 5) {
 }
 
 function ppf_connect_nodes() {
-
+	
 	with(obj_node) {
 		mid_x = x + ppf.CELL_SIZE/2;
 		mid_y = y + ppf.CELL_SIZE/2;
@@ -134,7 +144,7 @@ function ppf_connect_nodes() {
 			neig_data[$ ai_name] = [];
 		}
 		
-		// loop through 
+		// loop through
 		with(obj_node) {
 			with(obj_node) {
 				if id != other.id {
@@ -150,7 +160,7 @@ function ppf_connect_nodes() {
 							if floor_id == other.floor_id
 							or reversed_raycast(mid_x, mid_y+ppf.CELL_SIZE, other.mid_x, other.mid_y+ppf.CELL_SIZE, ppf.SOLID_OBJ, ppf.CELL_SIZE) {
 								connect = true;
-								action = 0;
+								action = ppf.STATE.WALK;
 							}
 						}
 					}
@@ -160,7 +170,7 @@ function ppf_connect_nodes() {
 						var arr_path = ppf_calc_jump(mid_x, mid_y, other.mid_x, other.mid_y, ai_data, 10) {
 							if array_length(arr_path) != 0 {
 								connect = true;
-								action = 1;
+								action = ppf.STATE.JUMP;
 							}
 						}
 					}
@@ -237,7 +247,7 @@ function ppf_find_path(from_x, from_y, to_x, to_y, ai_name) {
 			if n.visited continue;
 			var curve = neigs[i][2];
 			
-			var dist = max(point_distance(n.mid_x, n.mid_y, node.mid_x, node.mid_y), array_length(curve));
+			var dist = max(point_distance(n.mid_x, n.mid_y, node.mid_x, node.mid_y), array_length(curve)) * 0.1;
 			
 			var new_score = node.sc + dist;
 			if new_score < n.sc {

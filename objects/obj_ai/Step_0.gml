@@ -2,9 +2,7 @@ if ai_data == 0 ai_data = ppf.AI[$ ai_name];
 
 on_ground = vspd >= 0 and place_meeting(x, y+1, ppf.SOLID_OBJ);
 
-if !on_ground {
-	vspd += ai_data.GRAVITY;
-}
+if !on_ground vspd += ai_data.GRAVITY;
 
 if place_meeting(x+hspd, y, ppf.SOLID_OBJ) repeat(ceil(abs(hspd))) {
 	if !place_meeting(x+sign(hspd), y, ppf.SOLID_OBJ) x += sign(hspd);
@@ -32,6 +30,7 @@ var next_node = function() {
 	jumped = false;
 	hspd = 0;
 	vspd = 0;
+	continous_hspd = 0;
 	
 	if ++path_pos == array_length(path) {
 		path = [];
@@ -82,15 +81,17 @@ if array_length(path) != 0 {
 				var pdr = point_direction(x, y, p1x, p1y);
 				var pds = point_distance(x, y, p1x, p1y);
 				
-				hspd = lengthdir_x(pds, pdr);
+				continous_hspd = lengthdir_x(pds, pdr);
 				vspd = lengthdir_y(pds, pdr) - ai_data.GRAVITY;
 			}
 			
-			if y < node.mid_y and abs(x - node.mid_x) <= ai_data.SPEED {
+			if continous_hspd != 0 hspd = continous_hspd;
+			
+			if y < node.y+ppf.CELL_SIZE and abs(x - node.mid_x) <= abs(continous_hspd) {
 				hspd = (node.mid_x - x) * 0.25;
 			}
 			
-			if point_distance(x, y, node.mid_x, node.mid_y) <= ai_data.SPEED {
+			if point_distance(x, y, node.mid_x, node.mid_y) <= abs(continous_hspd) {
 				x = node.mid_x;
 				y = node.mid_y;
 				next_node();
