@@ -6,43 +6,38 @@ function ppf_init() {
 		CELL_SIZE: 32,
 		SOLID_OBJ: obj_solid,
 		HIDE_NODES: true,
-		DYNAMIC_CONNECTING: 0,
-		
-		STATE: {
-			WALK: 0,
-			JUMP: 1,
-		},
+		DYNAMIC_CONNECTIONS: 4,
 		
 		AI: {
 			Basic: {
 				ACTIVE: true,
 				HITBOX_WIDTH: 30,
 				HITBOX_HEIGHT: 30,
-				SPEED: 5,
-				JUMP: 14,
-				GRAVITY: 0.6,
+				SPEED: 2,
+				JUMP: 12,
+				GRAVITY: 0.3,
 				MAX_FALL_HEIGHT: 32 * 5,
 				CAN_JUMP: true,
-				WAIT_BEFORE_JUMP: 0 * room_speed,
-				WAIT_AFTER_LANDING: 0 * room_speed,
+				WAIT_BEFORE_JUMP: room_speed * 0,
+				WAIT_AFTER_LANDING: room_speed * 0,
 				DEBUG_DRAW: true,
-				DEBUG_DRAW_COLOR: c_lime,
+				DEBUG_DRAW_COLOR: c_orange,
 				DEBUG_DRAW_AI_PATH: true,
 			},
 			
 			Big_n_Slow: {
 				ACTIVE: false,
-				HITBOX_WIDTH: 24,
-				HITBOX_HEIGHT: 24,
-				SPEED: 1.5,
-				JUMP: 5,
-				GRAVITY: 0.3,
-				MAX_FALL_HEIGHT: 32 * 4,
+				HITBOX_WIDTH: 44,
+				HITBOX_HEIGHT: 44,
+				SPEED: 3,
+				JUMP: 14,
+				GRAVITY: 0.6,
+				MAX_FALL_HEIGHT: 32 * 5,
 				CAN_JUMP: true,
-				WAIT_BEFORE_JUMP: 0.2 * room_speed,
-				WAIT_AFTER_LANDING: 0.3 * room_speed,
-				DEBUG_DRAW: false,
-				DEBUG_DRAW_COLOR: c_orange,
+				WAIT_BEFORE_JUMP: room_speed * 0.1,
+				WAIT_AFTER_LANDING: room_speed * 0.2,
+				DEBUG_DRAW: true,
+				DEBUG_DRAW_COLOR: c_aqua,
 				DEBUG_DRAW_AI_PATH: true,
 			},
 		},
@@ -51,12 +46,50 @@ function ppf_init() {
 		dyn_nodes: [],
 		dyn_counter1: 0,
 		dyn_counter2: 0,
+		dyn_progress: 0,
+		dyn_done: false,
+		
+		STATE: {
+			WALK: 0,
+			JUMP: 1,
+		},
+		
+		calcj: {
+			hspd: 0,
+			vspd: 1,
+		}
 	};
 }
 
-#region PPF
+function ppf_join_nodes(n1, n2, ai_data, ai_name) {
+	
+	with(n1) {
+		with(n2) {
+			
+			// try walk
+			if y == other.y {
+				var ray = raycast(mid_x, mid_y, other.mid_x, other.mid_y, ppf.SOLID_OBJ, ppf.CELL_SIZE);
+				if ray[0] == noone {
+					if reversed_raycast(mid_x, mid_y+ppf.CELL_SIZE, other.mid_x, other.mid_y+ppf.CELL_SIZE, ppf.SOLID_OBJ, ppf.CELL_SIZE) {
+						array_push(neig_data[$ ai_name], [other.id, ppf.STATE.WALK, []]);
+						return true;
+					}
+				}
+			}
+			
+			// try jump
+			var curve = ppf_calc_jump(mid_x, mid_y, other.mid_x, other.mid_y, ai_data, 30);
+			if array_length(curve) != 0 {
+				array_push(neig_data[$ ai_name], [other.id, ppf.STATE.JUMP, curve]);
+				return true;
+			}
+			
+			return false;
+		}
+	}
+}
 
-function ppf_calc_jump(fx, fy, tx, ty, ai_data, jump_tries = 5) {
+function ppf_calc_jump(fx, fy, tx, ty, ai_data) {
 	
 	var spd = abs(ai_data.SPEED);
 	var jump = abs(ai_data.JUMP);
@@ -64,123 +97,175 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, jump_tries = 5) {
 	var w = ai_data.HITBOX_WIDTH;
 	var h = ai_data.HITBOX_HEIGHT;
 	
-	jump_tries = max(sqrt(jump_tries/2), 1);
-	var jlerp = 1 / jump_tries;
-	var j = lerp(0, jump, jlerp * 0.35);
+	var path = [];
+	var paths = [];
 	
 	var posx = fx;
 	var posy = fy;
-	var vspd = -j;
-	var path = [];
+	var hspd = spd;
+	var vspd = -jump * 4;
 	var maxy = fy;
+	var maxx = fx;
+	var col = false;
 	
-	while(true) {
-		
-		while(posy < ty or vspd < 0) {
+	// max jump dist check
+	while(posy < ty or vspd < 0) {
+		//draw_circle(posx, posy, 2, false);
+		vspd += grav * sqr(4) - grav;
+		posx += spd * 4;
+		posy += vspd;
+		maxy = min(maxy, posy);
+		if vspd > 0 and maxy > ty return [];
+	}
+	if posx < fx + abs(tx-fx) return [];
+	maxx = posx;
+	
+	#region normal jump
+	
+	for(var j = jump/2; j < jump+0.1; j++) {
+			
+		posx = fx;
+		posy = fy;
+		vspd = -j;
+		hspd = spd;
+		maxy = fy;
+			
+		path = [];
+		col = false;
+			
+		while((posy < ty or vspd < 0) and !(vspd > 0 and maxy > ty)) {
+			
 			array_push(path, [posx, posy]);
+			draw_circle(posx, posy, 2, false);
 			vspd += grav;
-			posx += spd;
+			posx += hspd;
 			posy += vspd;
 			maxy = min(maxy, posy);
-			if vspd > 0 and maxy > ty break;
 		}
 		
 		if posx > fx + abs(tx-fx) and maxy < ty {
-			var col = false;
+			
 			var lastx = fx;
 			var lasty = fy;
 			
 			for(var i = 0, len = array_length(path); i < len; i++) {
-				path[i][0] *= ((tx - fx) / path[i][0]) * (i / len);
-				path[i][0] += fx;
 				
-				if abs(path[i][0] - lastx) > w/3
-				or abs(path[i][1] - lasty) > h/3 {
+				path[i][0] = fx + (tx - fx) * (i / len);
+					
+				//draw_circle(path[i][0], path[i][1], 2, false);
+				
+				if abs(path[i][0] - lastx) > w/2
+				or abs(path[i][1] - lasty) > h/2 {
 					lastx = path[i][0];
 					lasty = path[i][1];
 					
 					//draw_rectangle(path[i][0]-w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1, path[i][0]+w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1-h, true);
-									   
-					if collision_rectangle(path[i][0]-w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1, 
-										   path[i][0]+w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1-h, 
-										   ppf.SOLID_OBJ, false, true) {
+					
+					if collision_rectangle(path[i][0]-w/2, path[i][1]+(ppf.CELL_SIZE/2)-1, 
+											path[i][0]+w/2, path[i][1]+(ppf.CELL_SIZE/2)-1-h, 
+											ppf.SOLID_OBJ, false, true) {
 						col = true;
 						break;
 					}
 				}
 			}
-			if !col break;
+			
+			if !col {
+				array_push(paths, path);
+				break;
+			}
 		}
-		
-		j = lerp(j, jump+1, min(1, j/jump * jlerp));
-		if j >= jump return [];
-		
-		posx = fx;
-		posy = fy;
-		vspd = -j;
-		path = [];
-		maxy = fy;
+		if !col break;
 	}
 	
-	return path;
-}
-
-function ppf_connect_nodes() {
+	#endregion
 	
-	with(obj_node) {
-		mid_x = x + ppf.CELL_SIZE/2;
-		mid_y = y + ppf.CELL_SIZE/2;
-		floor_id = collision_point(mid_x, mid_y+ppf.CELL_SIZE, ppf.SOLID_OBJ, false, true);
-	}
-	
-	foreach "aidata" in ppf.AI as_struct {
+	#region tight space jump
+	/*
+	for(var jy = ppf.CELL_SIZE * ((fy-ty)/ppf.CELL_SIZE); jy > -1; jy -= ppf.CELL_SIZE) {
 		
-		var ai_name = fed.cs.key;
-		var ai_data = aidata;
-		if !ai_data.ACTIVE continue;
-		
-		// clear neighbours
-		with(obj_node) {
-			neig_data[$ ai_name] = [];
-		}
-		
-		// loop through
-		with(obj_node) {
-			with(obj_node) {
-				if id != other.id {
+		for(var j = jump/2; j < jump+0.1; j++) {
+			
+			posx = fx;
+			posy = fy;
+			vspd = -j;
+			hspd = 0;
+			maxy = fy;
+			
+			path = [];
+			col = false;
+			
+			var curve_start = -1;
+			var frame_counter = 0;
+			
+			while((posy < ty or vspd < 0) and !(vspd > 0 and maxy > ty)) {
 				
-					var connect = false;
-					var action = ppf.STATE.WALK;
-					var arr_path = [];
+				array_push(path, [posx, posy]);
+				
+				if posy < (fy-jy)+1 and curve_start == -1 {
+					hspd = spd;
+					curve_start = frame_counter;
+				}
+				frame_counter++;
+				
+				vspd += grav;
+				posx += hspd;
+				posy += vspd;
+				maxy = min(maxy, posy);
+			}
+			
+			if posx > fx + abs(tx-fx) and maxy < ty {
+				
+				var lastx = fx;
+				var lasty = fy;
+				
+				for(var i = 0, len = array_length(path); i < len; i++) {
 					
-					// try walk
-					if y == other.y {
-						var ray = raycast(mid_x, mid_y, other.mid_x, other.mid_y, ppf.SOLID_OBJ, ppf.CELL_SIZE);
-						if ray[0] == noone {
-							if floor_id == other.floor_id
-							or reversed_raycast(mid_x, mid_y+ppf.CELL_SIZE, other.mid_x, other.mid_y+ppf.CELL_SIZE, ppf.SOLID_OBJ, ppf.CELL_SIZE) {
-								connect = true;
-								action = ppf.STATE.WALK;
-							}
-						}
+					if i >= curve_start {
+						path[i][0] = fx + (tx - fx) * ((i-curve_start) / (len-curve_start));
 					}
 					
-					// try jump
-					if !connect {
-						var arr_path = ppf_calc_jump(mid_x, mid_y, other.mid_x, other.mid_y, ai_data, 10) {
-							if array_length(arr_path) != 0 {
-								connect = true;
-								action = ppf.STATE.JUMP;
-							}
+					//draw_circle(path[i][0], path[i][1], 2, false);
+					
+					if abs(path[i][0] - lastx) > w/2
+					or abs(path[i][1] - lasty) > h/2 {
+						lastx = path[i][0];
+						lasty = path[i][1];
+						
+						//draw_rectangle(path[i][0]-w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1, path[i][0]+w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1-h, true);
+					
+						if collision_rectangle(path[i][0]-w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1, 
+											   path[i][0]+w/2, path[i][1]+(ppf.CELL_SIZE div 2)-1-h, 
+											   ppf.SOLID_OBJ, false, true) {
+							col = true;
+							break;
 						}
 					}
-					
-					// add neighbour if connected
-					if connect array_push(neig_data[$ ai_name], [other.id, action, arr_path]);
+				}
+				
+				if !col {
+					array_push(paths, path);
+					break;
 				}
 			}
 		}
+		if !col break;
+	}*/
+	
+	#endregion
+	
+	var lowest = 999999;
+	var lpath = [];
+	for(var i = 0; i < array_length(paths); i++) {
+		var l = array_length(paths[i]);
+		show_debug_message([i, l]);
+		if l < lowest {
+			l = lowest;
+			lpath = paths[i];
+		}
 	}
+	
+	return lpath;
 }
 
 function ppf_find_path(from_x, from_y, to_x, to_y, ai_name) {

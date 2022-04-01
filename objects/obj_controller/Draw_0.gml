@@ -1,4 +1,19 @@
-draw_set_alpha(0.15);
+draw_set_color(c_white);
+
+with(obj_node) {
+	foreach "ai_data" in ppf.AI as_struct {
+		if !ai_data.ACTIVE or !ai_data.DEBUG_DRAW continue;
+		draw_set_alpha(0.2);
+		var events = ppf_calc_jump(mid_x, mid_y, floor(mouse_x/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2, floor(mouse_y/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2, ai_data);
+		//var events = ppf_calc_jump(mid_x, mid_y, mouse_x, mouse_y, ai_data);
+		
+		draw_set_alpha(1);
+		//for(var i = 0; i < array_length(events); i++) draw_circle(events[i].px, events[i].py, 2, false);
+		for(var i = 0; i < array_length(events); i++) draw_circle(events[i][0], events[i][1], 2, false);
+	}
+}
+
+draw_set_alpha(0.25);
 
 with(obj_node) {
 	
@@ -8,12 +23,11 @@ with(obj_node) {
 	
 	foreach "ai_data" in ppf.AI as_struct {
 		
-		//var path = ppf_calc_jump(mid_x, mid_y, mouse_x, mouse_y, ai_data, 10);
-		//for(var i = 0; i < array_length(path); i++) draw_circle(path[i][0], path[i][1], 2, true);
+		if !ai_data.ACTIVE or !ai_data.DEBUG_DRAW continue;
 		
 		var neigs = neig_data[$ fed.cs.key];
-		if !ai_data.DEBUG_DRAW continue;
-		draw_set_color(ai_data.DEBUG_DRAW_COLOR);
+		
+		draw_set_color(ppf.dyn_done ? ai_data.DEBUG_DRAW_COLOR : c_white);
 		
 		for(var i = 0; i < array_length(neigs); i++) {
 		
@@ -25,8 +39,9 @@ with(obj_node) {
 				draw_line_width(mid_x+xoff, mid_y+yoff, n.mid_x+xoff, n.mid_y+yoff, 2);
 			}
 			else if action == 1 {
-				for(var c = 1; c < array_length(curve); c++) {
-					draw_line_width(curve[c-1][0]+xoff, curve[c-1][1]+yoff, curve[c][0]+xoff, curve[c][1]+yoff, 2);
+				var prec = 4;
+				for(var c = prec; c < array_length(curve); c++) {
+					if c % prec == 0 draw_line_width(curve[c-prec][0]+xoff, curve[c-prec][1]+yoff, curve[c][0]+xoff, curve[c][1]+yoff, 2);
 				}
 			}
 		}

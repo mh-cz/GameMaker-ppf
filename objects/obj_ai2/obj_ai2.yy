@@ -1,7 +1,7 @@
 {
   "spriteId": {
-    "name": "spr_ai",
-    "path": "sprites/spr_ai/spr_ai.yy",
+    "name": "spr_ai2",
+    "path": "sprites/spr_ai2/spr_ai2.yy",
   },
   "solid": false,
   "visible": true,
@@ -33,7 +33,7 @@
     "path": "folders/Objects.yy",
   },
   "resourceVersion": "1.0",
-  "name": "obj_ai",
+  "name": "obj_ai2",
   "tags": [],
   "resourceType": "GMObject",
 }

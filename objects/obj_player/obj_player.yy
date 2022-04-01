@@ -33,7 +33,7 @@
     "path": "folders/Objects.yy",
   },
   "resourceVersion": "1.0",
-  "name": "obj_ai",
+  "name": "obj_player",
   "tags": [],
   "resourceType": "GMObject",
 }
