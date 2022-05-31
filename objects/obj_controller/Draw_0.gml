@@ -1,20 +1,25 @@
 draw_set_color(c_white);
 
-with(obj_node) {
+/*with(obj_node) {
 	foreach "ai_data" in ppf.AI as_struct {
-		if !ai_data.ACTIVE or !ai_data.DEBUG_DRAW continue;
+		if !fe.ai_data.ACTIVE or !fe.ai_data.DEBUG_DRAW continue;
 		draw_set_alpha(0.2);
-		var events = ppf_calc_jump(mid_x, mid_y, floor(mouse_x/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2, floor(mouse_y/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2, ai_data);
-		//var events = ppf_calc_jump(mid_x, mid_y, mouse_x, mouse_y, ai_data);
+		//var events = ppf_calc_jump(mid_x, mid_y, floor(mouse_x/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2, floor(mouse_y/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2, ai_data);
+		var events = ppf_calc_jump(mid_x, mid_y, mouse_x, mouse_y, fe.ai_data);
 		
 		draw_set_alpha(1);
 		//for(var i = 0; i < array_length(events); i++) draw_circle(events[i].px, events[i].py, 2, false);
-		for(var i = 0; i < array_length(events); i++) draw_circle(events[i][0], events[i][1], 2, false);
+		//for(var i = 0; i < array_length(events); i++) draw_circle(events[i][0], events[i][1], 2, false);
 	}
+}*/
+
+draw_set_alpha(1);
+
+foreach "ai_data" in ppf.AI as_struct {
+	if !fe.ai_data.ACTIVE or !fe.ai_data.DEBUG_DRAW continue;
+	ppf_calc_jump2(500, 500, mouse_x, mouse_y, fe.ai_data);
 }
-
-draw_set_alpha(0.25);
-
+/*
 with(obj_node) {
 	
 	var yoff = 0;
@@ -23,11 +28,11 @@ with(obj_node) {
 	
 	foreach "ai_data" in ppf.AI as_struct {
 		
-		if !ai_data.ACTIVE or !ai_data.DEBUG_DRAW continue;
+		if !fe.ai_data.ACTIVE or !fe.ai_data.DEBUG_DRAW continue;
 		
-		var neigs = neig_data[$ fed.cs.key];
+		var neigs = neig_data[$ fe.k_ai_data];
 		
-		draw_set_color(ppf.dyn_done ? ai_data.DEBUG_DRAW_COLOR : c_white);
+		draw_set_color(ppf.dyn_done ? fe.ai_data.DEBUG_DRAW_COLOR : c_white);
 		
 		for(var i = 0; i < array_length(neigs); i++) {
 		

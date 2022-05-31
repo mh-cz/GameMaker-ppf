@@ -97,8 +97,9 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data) {
 	var w = ai_data.HITBOX_WIDTH;
 	var h = ai_data.HITBOX_HEIGHT;
 	
-	var path = [];
-	var paths = [];
+	//var path = [];
+	//var paths = [];
+	var events = [];
 	
 	var posx = fx;
 	var posy = fy;
@@ -106,11 +107,32 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data) {
 	var vspd = -jump * 4;
 	var maxy = fy;
 	var maxx = fx;
-	var col = false;
+	
+	var t = 0;
 	
 	// max jump dist check
 	while(posy < ty or vspd < 0) {
-		//draw_circle(posx, posy, 2, false);
+		draw_circle(posx, posy, 2, false);
+		vspd += grav;
+		posx += spd;
+		posy += vspd;
+		maxy = min(maxy, posy);
+		if vspd > 0 and maxy > ty return [];
+	}
+	if posx < fx + abs(tx-fx) return [];
+	maxx = posx;
+	var posx = fx;
+	var posy = fy;
+	var hspd = spd;
+	var vspd = -jump * 4;
+	var maxy = fy;
+	var maxx = fx;
+	
+	var t = 0;
+	
+	// max jump dist check
+	while(posy < ty or vspd < 0) {
+		draw_circle(posx, posy, 4, true);
 		vspd += grav * sqr(4) - grav;
 		posx += spd * 4;
 		posy += vspd;
@@ -122,26 +144,28 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data) {
 	
 	#region normal jump
 	
-	for(var j = jump/2; j < jump+0.1; j++) {
-			
+	for(var j = jump * 0.5; j < jump+0.1; j++) {
+		
 		posx = fx;
 		posy = fy;
 		vspd = -j;
 		hspd = spd;
 		maxy = fy;
-			
-		path = [];
-		col = false;
-			
+		
+		var event = [];
+		var col = false;
+		t = 0;
+		
+		array_push(event, { POS: [posx, posy], VSPD: vspd, HSPD: hspd, T:t } );
+		
 		while((posy < ty or vspd < 0) and !(vspd > 0 and maxy > ty)) {
-			
-			array_push(path, [posx, posy]);
-			draw_circle(posx, posy, 2, false);
 			vspd += grav;
 			posx += hspd;
 			posy += vspd;
 			maxy = min(maxy, posy);
 		}
+		
+		array_push(event, { POS: [posx, posy], VSPD: vspd, HSPD: hspd, T:t } );
 		
 		if posx > fx + abs(tx-fx) and maxy < ty {
 			
@@ -151,8 +175,6 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data) {
 			for(var i = 0, len = array_length(path); i < len; i++) {
 				
 				path[i][0] = fx + (tx - fx) * (i / len);
-					
-				//draw_circle(path[i][0], path[i][1], 2, false);
 				
 				if abs(path[i][0] - lastx) > w/2
 				or abs(path[i][1] - lasty) > h/2 {
@@ -175,16 +197,15 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data) {
 				break;
 			}
 		}
-		if !col break;
 	}
 	
 	#endregion
 	
 	#region tight space jump
-	/*
+	
 	for(var jy = ppf.CELL_SIZE * ((fy-ty)/ppf.CELL_SIZE); jy > -1; jy -= ppf.CELL_SIZE) {
 		
-		for(var j = jump/2; j < jump+0.1; j++) {
+		for(var j = jump * 0.5; j < jump+0.1; j++) {
 			
 			posx = fx;
 			posy = fy;
@@ -249,18 +270,17 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data) {
 				}
 			}
 		}
-		if !col break;
-	}*/
+	}
 	
 	#endregion
 	
-	var lowest = 999999;
+	var lowest = infinity;
+	var len = array_length(paths);
 	var lpath = [];
-	for(var i = 0; i < array_length(paths); i++) {
+	for(var i = 0; i < len; i++) {
 		var l = array_length(paths[i]);
-		show_debug_message([i, l]);
 		if l < lowest {
-			l = lowest;
+			lowest = l;
 			lpath = paths[i];
 		}
 	}
@@ -379,8 +399,6 @@ function ppf_find_path(from_x, from_y, to_x, to_y, ai_name) {
 	return get_path(start_node, end_node, ai_name);
 }
 
-#endregion
-
 #region raycasts
 
 // return if object is in the way
@@ -432,3 +450,38 @@ function reversed_raycast(x1, y1, x2, y2, obj, step) {
 }
 
 #endregion
+
+function ppf_calc_jump2(fx, fy, tx, ty, ai_data) {
+	
+	var spd = abs(ai_data.SPEED);
+	var jump = abs(mouse_x * 0.1);
+	var grav = abs(ai_data.GRAVITY);
+	
+	var posx = fx;
+	var posy = fy;
+	var hspd = spd;
+	var vspd = -jump;
+	
+	while(posy < ty or vspd < 0) {
+		draw_circle(posx, posy, 2, false);
+		vspd += grav;
+		posx += spd;
+		posy += vspd;
+	}
+	
+	var speedup = 5;
+	
+	var posx = fx;
+	var posy = fy;
+	var hspd = spd;
+	var vspd = -jump
+	
+	while(posy < ty or vspd < 0) {
+		draw_circle(posx, posy, 5, true);
+		repeat(speedup) {
+			vspd += grav;
+			posx += spd;
+			posy += vspd;
+		}
+	}
+}

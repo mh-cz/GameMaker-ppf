@@ -61,7 +61,6 @@ var next_node = function() {
 		if action == ppf.STATE.JUMP wait += ai_data.WAIT_BEFORE_JUMP;
 	}
 }
-
 if mouse_check_button_pressed(mb_left) {
 	path = ppf_find_path(x, y, mouse_x, mouse_y, ai_name);
 	path_pos = -1;

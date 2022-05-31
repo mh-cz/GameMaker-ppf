@@ -1,9 +1,9 @@
-if ppf.dyn_start_new_cycle {
+/*if ppf.dyn_start_new_cycle {
 	ppf.dyn_start_new_cycle = false;
 	
 	with(obj_node) {
 		array_push(ppf.dyn_nodes, id);
-		foreach "" in ppf.AI as_struct neig_data[$ fed.cs.key] = [];
+		foreach "v" in ppf.AI as_struct neig_data[$ fe.k_v] = [];
 		mid_x = x + ppf.CELL_SIZE div 2;
 		mid_y = y + ppf.CELL_SIZE div 2;
 	}
@@ -36,8 +36,8 @@ if !ppf.dyn_done {
 			}
 		
 			foreach "ai_data" in ppf.AI as_struct {
-				if !ai_data.ACTIVE continue;
-				ppf_join_nodes(n1, n2, ai_data, fed.cs.key);
+				if !fe.ai_data.ACTIVE continue;
+				ppf_join_nodes(n1, n2, fe.ai_data, fe.k_ai_data);
 			}
 		}
 	}
