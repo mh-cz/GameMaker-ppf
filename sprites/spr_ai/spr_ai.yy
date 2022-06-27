@@ -59,7 +59,7 @@
     "eventToFunction": {},
     "eventStubScript": null,
     "parent": {"name":"spr_ai","path":"sprites/spr_ai/spr_ai.yy",},
-    "resourceVersion": "1.3",
+    "resourceVersion": "1.4",
     "name": "spr_ai",
     "tags": [],
     "resourceType": "GMSequence",

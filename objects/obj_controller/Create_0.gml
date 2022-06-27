@@ -1,8 +1,5 @@
-ppf_init();
-foreach_init();
+//ppf_generate_col_lines();
 
-x1 = 0;
-y1 = 0;
-x2 = 0;
-y2 = 0;
+start_node = noone;
+end_node = noone;
 path = [];

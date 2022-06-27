@@ -1,61 +1,71 @@
-draw_set_color(c_white);
+if keyboard_check_pressed(ord("R")) room_restart();
 
-/*with(obj_node) {
-	foreach "ai_data" in ppf.AI as_struct {
-		if !fe.ai_data.ACTIVE or !fe.ai_data.DEBUG_DRAW continue;
-		draw_set_alpha(0.2);
-		//var events = ppf_calc_jump(mid_x, mid_y, floor(mouse_x/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2, floor(mouse_y/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2, ai_data);
-		var events = ppf_calc_jump(mid_x, mid_y, mouse_x, mouse_y, fe.ai_data);
-		
-		draw_set_alpha(1);
-		//for(var i = 0; i < array_length(events); i++) draw_circle(events[i].px, events[i].py, 2, false);
-		//for(var i = 0; i < array_length(events); i++) draw_circle(events[i][0], events[i][1], 2, false);
+draw_set_color(c_white);
+draw_set_alpha(1);
+
+var mx = floor(mouse_x/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2;
+var my = floor(mouse_y/ppf.CELL_SIZE)*ppf.CELL_SIZE+ppf.CELL_SIZE/2;
+
+
+/*if mouse_check_button_pressed(mb_left) start_node = instance_nearest(mouse_x, mouse_y, obj_node);
+if mouse_check_button_pressed(mb_right) end_node = instance_nearest(mouse_x, mouse_y, obj_node);
+
+if start_node != noone draw_circle(start_node.mid_x, start_node.mid_y, 16, true);
+if end_node != noone draw_circle(end_node.mid_x, end_node.mid_y, 32, true);
+
+if mouse_check_button_pressed(mb_any) {
+	if start_node != noone and end_node != noone {
+		path = ppf_find_path(start_node.x, start_node.y, end_node.x, end_node.y, "Basic");
 	}
 }*/
 
-draw_set_alpha(1);
-
-foreach "ai_data" in ppf.AI as_struct {
-	if !fe.ai_data.ACTIVE or !fe.ai_data.DEBUG_DRAW continue;
-	ppf_calc_jump2(500, 500, mouse_x, mouse_y, fe.ai_data);
-}
 /*
+with(obj_node) {
+	if x == 320 and y == 384 {
+		Foreach ai_data inStruct ppf.AI Run {
+			if !ai_data.ACTIVE or !ai_data.DRAW_PATHS or Loop.key != "Speedy" continue;
+			var events = ppf_calc_jump(mid_x, mid_y, mx, my, ai_data, 1);
+			draw_text(10, 50, events);
+		}
+	}
+}
+*/
+
+draw_set_alpha(0.2);
+
 with(obj_node) {
 	
 	var yoff = 0;
 	var xoff = 0;
 	visible = !ppf.HIDE_NODES;
 	
-	foreach "ai_data" in ppf.AI as_struct {
+	Foreach ai_data inStruct ppf.AI Run {
 		
-		if !fe.ai_data.ACTIVE or !fe.ai_data.DEBUG_DRAW continue;
+		if !ai_data.ACTIVE or !ai_data.DEBUG.DRAW_PATHS continue;
+		var neigs = neig_data[$ Loop.key];
+		draw_set_color(ai_data.DEBUG.DRAW_PATHS_COLOR);
 		
-		var neigs = neig_data[$ fe.k_ai_data];
-		
-		draw_set_color(ppf.dyn_done ? fe.ai_data.DEBUG_DRAW_COLOR : c_white);
-		
-		for(var i = 0; i < array_length(neigs); i++) {
-		
-			var n = neigs[i][0];
-			var action = neigs[i][1];
-			var curve = neigs[i][2];
+		for(var i = 1; i < array_length(neigs); i++) {
 			
-			if action == 0 {
-				draw_line_width(mid_x+xoff, mid_y+yoff, n.mid_x+xoff, n.mid_y+yoff, 2);
+			var n = neigs[i][0];
+			var events = neigs[i][1];
+			
+			var prevx = mid_x;
+			var prevy = mid_y;
+			for(var e = 0; e < array_length(events); e++) {
+				var ev = events[e];
+				draw_line_width(ev.x, ev.y, prevx, prevy, 3);
+				prevx = ev.x;
+				prevy = ev.y;
 			}
-			else if action == 1 {
-				var prec = 4;
-				for(var c = prec; c < array_length(curve); c++) {
-					if c % prec == 0 draw_line_width(curve[c-prec][0]+xoff, curve[c-prec][1]+yoff, curve[c][0]+xoff, curve[c][1]+yoff, 2);
-				}
-			}
+			
+			draw_line_width(n.mid_x+xoff, n.mid_y+yoff, prevx, prevy, 3);
 		}
 		
 		yoff -= 3;
 		xoff -= 3;
 	}
 }
+
 draw_set_alpha(1);
 draw_set_color(c_white);
-
-if keyboard_check_pressed(ord("R")) room_restart();

@@ -1,6 +1,6 @@
 neig_data = {};
-mid_x = 0;
-mid_y = 0;
+mid_x = x + ppf.CELL_SIZE/2;
+mid_y = y + ppf.CELL_SIZE/2;
 visited = false;
-sc = 999999;
+sc = infinity;
 prev_node = noone;
