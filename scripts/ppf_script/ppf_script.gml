@@ -1,6 +1,6 @@
-globalvar ppf;
-ppf = {
+globalvar ppf; ppf = {
 	
+	ENABLED: true,
 	CELL_SIZE: 32,
 	SOLID_OBJ: obj_solid,
 	HIDE_NODES: true,
@@ -9,7 +9,7 @@ ppf = {
 	
 	AI: {
 		Basic: {
-			ACTIVE: true,
+			ENABLED: true,
 			HITBOX_WIDTH: 30,
 			HITBOX_HEIGHT: 30,
 			SPEED: 3,
@@ -21,13 +21,14 @@ ppf = {
 			WAIT_AFTER_LANDING: room_speed * 0,
 			DEBUG: {
 				DRAW_PATHS: true,
+				DRAW_PATHS_AFTER_GEN_DONE: false,
 				DRAW_PATHS_COLOR: c_orange,
 				DRAW_AI_PATH: true,
 				DRAW_AI_PATH_COLOR: c_orange,
 			},
 		},
 		Speedy: {
-			ACTIVE: true,
+			ENABLED: true,
 			HITBOX_WIDTH: 30,
 			HITBOX_HEIGHT: 30,
 			SPEED: 5,
@@ -39,6 +40,7 @@ ppf = {
 			WAIT_AFTER_LANDING: room_speed * 0,
 			DEBUG: {
 				DRAW_PATHS: true,
+				DRAW_PATHS_AFTER_GEN_DONE: false,
 				DRAW_PATHS_COLOR: c_aqua,
 				DRAW_AI_PATH: true,
 				DRAW_AI_PATH_COLOR: c_aqua,
@@ -46,49 +48,12 @@ ppf = {
 		},
 	},
 	
-	gen_start_new_cycle: true,
+	gen_start_new_cycle: false,
 	gen_nodes: [],
 	gen_counter1: 0,
 	gen_counter2: 0,
 	gen_progress: 0,
-	gen_done: false,
-		
-	STATE: {
-		WALK: 0,
-		JUMP: 1,
-	},
-	
-	col_line_data: [],
-}
-
-function ppf_nearest_col_line_dist(px, py, hspd, vspd) {
-	var d = infinity;
-	var check = sign(hspd) > 0 xor sign(vspd) > 0;
-	for(var i = 0, l = array_length(ppf.col_line_data); i < l; i++) {
-		if i % 2 != check continue;
-		var line = ppf.col_line_data[i];
-		var dist = abs(line[0] * px + line[1] * py + line[2]) / line[3];
-		if dist < d d = dist;
-	}
-	return d;
-}
-
-function ppf_generate_col_lines(cell_size = ppf.CELL_SIZE) {
-	ppf.col_line_data = [];
-	var s = round(max(room_width, room_height) / cell_size) * cell_size;
-	for(var i = cell_size; i < s*2; i += cell_size) {
-		array_push(ppf.col_line_data, ppf_col_line(0,i,i,0));
-		array_push(ppf.col_line_data, ppf_col_line(i-s,0,i,s));
-	}
-}
-
-function ppf_col_line(lx1, ly1, lx2, ly2) {
-	var A = ly1 - ly2;
-    var B = lx2 - lx1;
-    var C = lx1 * ly2 - lx2 * ly1;
-    //if A == 0 and B == 0 return infinity;
-    //return abs(A * px + B * py + C) / sqrt(A * A + B * B);
-	return [A, B, C, sqrt(A * A + B * B)];
+	gen_done: -1,
 }
 
 function ppf_join_nodes(n1, n2, ai_data, ai_name) {
@@ -173,7 +138,7 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, specific_jump = -1) {
 			var yh = sqr(j) - 2 * grav * yoff;
 			if yh < 4 continue; // target too high
 			var t = (j + sqrt(yh)) / grav;
-			if t > shortest_time continue; // shorter exists
+			if t >= shortest_time continue; // shorter exists
 			var hdiff = (tx - fx) / (t * spd);
 			if abs(hdiff) > 1 continue; // target too far
 		
@@ -191,18 +156,22 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, specific_jump = -1) {
 			
 				draw_point(round(posx), round(posy));
 			
-				var near_point = ppf_nearest_col_line_dist(posx, posy, hspd, vspd) < max(cell_size * 0.2, (htb_w + htb_h) * 0.01);
-				if near_point or abs(posx - lastx) > htb_w/2 or abs(posy - lasty) > htb_h/2 {
+				if abs(posx - lastx) > htb_w * 0.65 or abs(posy - lasty) > htb_h*2 + abs(vspd/2) {
 					lastx = posx;
 					lasty = posy;
+					
+					var left = lastx-htb_w/2;
+					var right = lastx+htb_w/2;
+					var up = max(fy - max_jump_h + cell_size/2 - htb_h, lasty+cell_size/2-htb_h*1.25-abs(vspd*4));
+					var down = min((vspd < 0 ? fy : ty) + cell_size*0.25, lasty+cell_size/2+htb_h*0.25+abs(vspd*4));
 				
-					/*draw_set_color(near_point ? c_red : c_yellow);
+					draw_set_color(c_yellow);
 					draw_set_alpha(0.4);
-					draw_rectangle(lastx-htb_w/2, lasty+(cell_size/2)-1, lastx+htb_w/2, lasty+(cell_size/2)-1-htb_h, true);
+					draw_rectangle(left, up, right, down, true);
 					draw_set_color(c_white);
-					draw_set_alpha(1);*/
+					draw_set_alpha(1);
 				
-					col = collision_rectangle(lastx-htb_w/2, lasty+(cell_size/2)-1, lastx+htb_w/2, lasty+(cell_size/2)-1-htb_h, ppf.SOLID_OBJ, false, true);		
+					col = collision_rectangle(left, up, right, down, ppf.SOLID_OBJ, false, true);		
 					if col break;
 				}
 				vspd += grav;
@@ -280,18 +249,22 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, specific_jump = -1) {
 			
 					//draw_point(round(posx), round(posy));
 			
-					var near_point = ppf_nearest_col_line_dist(posx, posy, hspd, vspd) < max(cell_size * 0.2, (htb_w + htb_h) * 0.01);
-					if near_point or abs(posx - lastx) > htb_w/2 or abs(posy - lasty) > htb_h/2 {
+					if (abs(posx - lastx) > htb_w * 0.65 or abs(posy - lasty) > htb_h*2 + abs(vspd/2)) {
 						lastx = posx;
 						lasty = posy;
+					
+						var left = lastx-htb_w/2;
+						var right = lastx+htb_w/2;
+						var up = max(fy - max_jump_h + cell_size/2 - htb_h, lasty+cell_size/2-htb_h*1.25-abs(vspd*4));
+						var down = min((vspd < 0 ? fy : ty) + cell_size*0.25, lasty+cell_size/2+htb_h*0.25+abs(vspd*4));
 				
-						/*draw_set_color(near_point ? c_red : c_yellow);
+						/*draw_set_color(c_yellow);
 						draw_set_alpha(0.4);
-						draw_rectangle(lastx-htb_w/2, lasty+(cell_size/2)-1, lastx+htb_w/2, lasty+(cell_size/2)-1-htb_h, true);
+						draw_rectangle(left, up, right, down, true);
 						draw_set_color(c_white);
 						draw_set_alpha(1);*/
 				
-						col = collision_rectangle(lastx-htb_w/2, lasty+(cell_size/2)-1, lastx+htb_w/2, lasty+(cell_size/2)-1-htb_h, ppf.SOLID_OBJ, false, true);
+						col = collision_rectangle(left, up, right, down, ppf.SOLID_OBJ, false, true);	
 						if col break;
 					}
 					if state == 0 {
@@ -383,305 +356,7 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, specific_jump = -1) {
 			
 					//draw_point(round(posx), round(posy));
 			
-					var near_point = state == 0 and ppf_nearest_col_line_dist(posx, posy, hspd, vspd) < max(cell_size * 0.2, (htb_w + htb_h) * 0.01);
-					if near_point or abs(posx - lastx) > htb_w/2 or abs(posy - lasty) > htb_h/2 {
-						lastx = posx;
-						lasty = posy;
-				
-						/*draw_set_color(near_point ? c_red : c_yellow);
-						draw_set_alpha(0.4);
-						draw_rectangle(lastx-htb_w/2, lasty+(cell_size/2)-1, lastx+htb_w/2, lasty+(cell_size/2)-1-htb_h, true);
-						draw_set_color(c_white);
-						draw_set_alpha(1);*/
-				
-						col = collision_rectangle(lastx-htb_w/2, lasty+(cell_size/2)-1, lastx+htb_w/2, lasty+(cell_size/2)-1-htb_h, ppf.SOLID_OBJ, false, true);
-						if col break;
-					}
-					if state == 0 {
-						vspd += grav;
-						posy += vspd;
-						posx += hspd;
-						if abs(posx - tx) < abs(hspd) {
-							state++;
-							posx = tx;
-							
-							var prev_ev = events[array_length(events)-1];
-							prev_ev.next_x = posx;
-							prev_ev.next_y = posy;
-							array_push(events, new ppf_move_event(posx, posy, vspd, 0));
-						}
-					}
-					else if state == 1 {
-						vspd += grav;
-						posy += vspd;
-					}
-				}
-		
-				if !col {
-					var prev_ev = events[array_length(events)-1];
-					prev_ev.next_x = tx;
-					prev_ev.next_y = ty;
-					shortest_time = t + elevated_h;
-					shortest_jump = events;
-					break;
-				}
-			}
-			if !col break;
-		}
-		
-		return [shortest_jump, shortest_time];
-	}
-	
-	var normal_jump_2 = function(fx, fy, tx, ty, ai_data, shortest_time) {
-		
-		var spd = ai_data.SPEED;
-		var jump = ai_data.JUMP;
-		var grav = ai_data.GRAVITY;
-		var htb_w = ai_data.HITBOX_WIDTH;
-		var htb_h = ai_data.HITBOX_HEIGHT;
-		var max_jump_h = sqr(jump) / (2 * grav);
-		var max_fall = ai_data.MAX_FALL_HEIGHT;
-		var cell_size = ppf.CELL_SIZE;
-		
-		var shortest_jump = [];
-	
-		if fy < ty and abs(fy - ty) > max_fall return [[], infinity];
-		
-		var jh = 0.5;
-		var j = 0;
-		
-		while(cell_size * jh < max_jump_h and j != jump) {
-		
-			j = sqrt(2 * grav * cell_size * jh);
-			if j > jump j = jump;
-			jh += ppf.JUMP_PRECISION;
-		
-			var events = [];
-			var col = false;
-		
-			var yoff = fy - ty;
-			var yh = sqr(j) - 2 * grav * yoff;
-			if yh < 4 continue; // target too high
-			var t = (j + sqrt(yh)) / grav;
-			if t >= shortest_time continue; // shorter exists
-			var hdiff = (tx - fx) / (t * spd);
-			if abs(hdiff) > 1 continue; // target too far
-		
-			var posx = fx;
-			var posy = fy;
-			var hspd = spd * hdiff;
-			var vspd = -j - 0.1;
-		
-			var lastx = fx;
-			var lasty = fy;
-		
-			array_push(events, new ppf_move_event(posx, posy, vspd, hspd));
-		
-			while(posy < ty or vspd < 0) {
-			
-				//draw_point(round(posx), round(posy));
-			
-				if abs(posx - lastx) > htb_w * 0.75 or abs(posy - lasty) > htb_h*2 + abs(vspd/2) {
-					lastx = posx;
-					lasty = posy;
-					
-					var left = lastx-htb_w/2;
-					var right = lastx+htb_w/2;
-					var up = max(fy - max_jump_h + cell_size/2 - htb_h, lasty+cell_size/2-htb_h*1.25-abs(vspd*4));
-					var down = min((vspd < 0 ? fy : ty) + cell_size*0.25, lasty+cell_size/2+htb_h*0.25+abs(vspd*4));
-				
-					/*draw_set_color(c_yellow);
-					draw_set_alpha(0.4);
-					draw_rectangle(left, up, right, down, true);
-					draw_set_color(c_white);
-					draw_set_alpha(1);*/
-				
-					col = collision_rectangle(left, up, right, down, ppf.SOLID_OBJ, false, true);		
-					if col break;
-				}
-				vspd += grav;
-				posy += vspd;
-				posx += hspd;
-			}
-		
-			if !col {
-				//array_push(events, new ppf_move_event(tx, ty, 0, 0, 0));
-				var prev_ev = events[array_length(events)-1];
-				prev_ev.next_x = tx;
-				prev_ev.next_y = ty;
-				shortest_time = t;
-				shortest_jump = events;
-				break;
-			}
-		}
-		
-		return [shortest_jump, shortest_time];
-	}
-	
-	var tight_space_jump_up_2 = function(fx, fy, tx, ty, ai_data, shortest_time) {
-		
-		var spd = ai_data.SPEED;
-		var jump = ai_data.JUMP;
-		var grav = ai_data.GRAVITY;
-		var htb_w = ai_data.HITBOX_WIDTH;
-		var htb_h = ai_data.HITBOX_HEIGHT;
-		var max_jump_h = sqr(jump) / (2 * grav);
-		var max_fall = ai_data.MAX_FALL_HEIGHT;
-		var cell_size = ppf.CELL_SIZE;
-		
-		var shortest_jump = [];
-	
-		if fy < ty and abs(fy - ty) > max_fall return [[], infinity];
-	
-		var elevated_h = 0;
-		while(elevated_h < max_jump_h) {
-	
-			elevated_h += cell_size;
-			var jh = 0.5 + elevated_h / cell_size;
-			var j = 0;
-			var col = false;
-	
-			while(cell_size * jh < max_jump_h and j != jump) {
-		
-				var ej = sqrt(2 * grav * (cell_size * jh - elevated_h));
-				j = sqrt(2 * grav * cell_size * jh);
-				if j > jump j = jump;
-				jh += ppf.JUMP_PRECISION;
-		
-				var events = [];
-				var col = false;
-		
-				var yoff = (fy-elevated_h) - ty;
-				var yh = sqr(ej) - 2 * grav * yoff;
-				if yh < 4 continue; // target too high
-				var t = (ej + sqrt(yh)) / grav;
-				if t + elevated_h >= shortest_time continue; // shorter exists
-				var hdiff = (tx - fx) / (t * spd);
-				if abs(hdiff) > 1 continue; // target too far
-		
-				var posx = fx;
-				var posy = fy;
-				var hspd = spd * hdiff;
-				var vspd = -j;
-		
-				var lastx = posx;
-				var lasty = posy;
-				var state = 0;
-			
-				array_push(events, new ppf_move_event(posx, posy, vspd, 0));
-			
-				while(posy < ty or vspd < 0) {
-			
-					//draw_point(round(posx), round(posy));
-			
-					if (abs(posx - lastx) > htb_w * 0.75 or abs(posy - lasty) > htb_h*2 + abs(vspd/2)) {
-						lastx = posx;
-						lasty = posy;
-					
-						var left = lastx-htb_w/2;
-						var right = lastx+htb_w/2;
-						var up = max(fy - max_jump_h + cell_size/2 - htb_h, lasty+cell_size/2-htb_h*1.25-abs(vspd*4));
-						var down = min((vspd < 0 ? fy : ty) + cell_size*0.25, lasty+cell_size/2+htb_h*0.25+abs(vspd*4));
-				
-						/*draw_set_color(c_yellow);
-						draw_set_alpha(0.4);
-						draw_rectangle(left, up, right, down, true);
-						draw_set_color(c_white);
-						draw_set_alpha(1);*/
-				
-						col = collision_rectangle(left, up, right, down, ppf.SOLID_OBJ, false, true);	
-						if col break;
-					}
-					if state == 0 {
-						vspd += grav;
-						posy += vspd;
-						if posy <= fy-elevated_h {
-							state++;
-							
-							var prev_ev = events[array_length(events)-1];
-							prev_ev.next_x = posx;
-							prev_ev.next_y = posy;
-							array_push(events, new ppf_move_event(posx, posy, vspd, hspd));
-						}
-					}
-					else if state == 1 {
-						vspd += grav;
-						posy += vspd;
-						posx += hspd;
-					}
-				}
-		
-				if !col {
-					var prev_ev = events[array_length(events)-1];
-					prev_ev.next_x = tx;
-					prev_ev.next_y = ty;
-					shortest_time = t + elevated_h;
-					shortest_jump = events;
-					break;
-				}
-			}
-			if !col break;
-		}
-		
-		return [shortest_jump, shortest_time];
-	}
-	
-	var tight_space_jump_down_2 = function(fx, fy, tx, ty, ai_data, shortest_time) {
-		
-		var spd = ai_data.SPEED;
-		var jump = ai_data.JUMP;
-		var grav = ai_data.GRAVITY;
-		var htb_w = ai_data.HITBOX_WIDTH;
-		var htb_h = ai_data.HITBOX_HEIGHT;
-		var max_jump_h = sqr(jump) / (2 * grav);
-		var max_fall = ai_data.MAX_FALL_HEIGHT;
-		var cell_size = ppf.CELL_SIZE;
-		
-		var shortest_jump = [];
-		
-		if fy < ty and abs(fy - ty) > max_fall return [[], infinity];
-	
-		var elevated_h = 0;
-		while(elevated_h < max_fall) {
-	
-			elevated_h += cell_size;
-			var jh = 0.5
-			var j = 0;
-			var col = false;
-	
-			while(cell_size * jh < max_jump_h and j != jump) {
-		
-				j = sqrt(2 * grav * cell_size * jh);
-				if j > jump j = jump;
-				jh += ppf.JUMP_PRECISION;
-		
-				var events = [];
-				var col = false;
-		
-				var yoff = fy - (ty-elevated_h);
-				var yh = sqr(j) - 2 * grav * yoff;
-				if yh < 4 continue; // target too high
-				var t = (j + sqrt(yh)) / grav;
-				if t + elevated_h >= shortest_time continue; // shorter exists
-				var hdiff = (tx - fx) / (t * spd);
-				if abs(hdiff) > 1 continue; // target too far
-				
-				var posx = fx;
-				var posy = fy;
-				var hspd = spd * hdiff;
-				var vspd = -j;
-				
-				var lastx = posx;
-				var lasty = posy;
-				var state = 0;
-			
-				array_push(events, new ppf_move_event(posx, posy, vspd, hspd));
-			
-				while(posy < ty or vspd < 0) {
-			
-					//draw_point(round(posx), round(posy));
-			
-					if abs(posx - lastx) > htb_w * 0.75 or abs(posy - lasty) > htb_h*2 + abs(vspd/2) {
+					if abs(posx - lastx) > htb_w * 0.65 or abs(posy - lasty) > htb_h*2 + abs(vspd/2) {
 						lastx = posx;
 						lasty = posy;
 					
@@ -735,31 +410,32 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, specific_jump = -1) {
 	}
 	
 	if specific_jump == -1 {
-		var jmp = normal_jump_2(fx, fy, tx, ty, ai_data, shortest_time);
+		
+		var jmp = normal_jump(fx, fy, tx, ty, ai_data, shortest_time);
 		if jmp[1] < shortest_time {
 			shortest_jump = jmp[0];
 			shortest_time = jmp[1];
 		}
 	
 		if fy > ty {
-			var jmp = tight_space_jump_up_2(fx, fy, tx, ty, ai_data, shortest_time);
+			var jmp = tight_space_jump_up(fx, fy, tx, ty, ai_data, shortest_time);
 			if jmp[1] < shortest_time {
 				shortest_jump = jmp[0];
 				shortest_time = jmp[1];
 			}
-			var jmp = tight_space_jump_down_2(fx, fy, tx, ty, ai_data, shortest_time);
+			var jmp = tight_space_jump_down(fx, fy, tx, ty, ai_data, shortest_time);
 			if jmp[1] < shortest_time {
 				shortest_jump = jmp[0];
 				shortest_time = jmp[1];
 			}
 		}
 		else {
-			var jmp = tight_space_jump_down_2(fx, fy, tx, ty, ai_data, shortest_time);
+			var jmp = tight_space_jump_down(fx, fy, tx, ty, ai_data, shortest_time);
 			if jmp[1] < shortest_time {
 				shortest_jump = jmp[0];
 				shortest_time = jmp[1];
 			}
-			var jmp = tight_space_jump_up_2(fx, fy, tx, ty, ai_data, shortest_time);
+			var jmp = tight_space_jump_up(fx, fy, tx, ty, ai_data, shortest_time);
 			if jmp[1] < shortest_time {
 				shortest_jump = jmp[0];
 				shortest_time = jmp[1];
@@ -768,21 +444,21 @@ function ppf_calc_jump(fx, fy, tx, ty, ai_data, specific_jump = -1) {
 	}
 	else {
 		if specific_jump == 0 {
-			var jmp = normal_jump_2(fx, fy, tx, ty, ai_data, shortest_time);
+			var jmp = normal_jump(fx, fy, tx, ty, ai_data, shortest_time);
 			if jmp[1] < shortest_time {
 				shortest_jump = jmp[0];
 				shortest_time = jmp[1];
 			}	
 		}
 		else if specific_jump == 1 {
-			var jmp = tight_space_jump_up_2(fx, fy, tx, ty, ai_data, shortest_time);
+			var jmp = tight_space_jump_up(fx, fy, tx, ty, ai_data, shortest_time);
 			if jmp[1] < shortest_time {
 				shortest_jump = jmp[0];
 				shortest_time = jmp[1];
 			}	
 		}
 		else if specific_jump == 2 {
-			var jmp = tight_space_jump_down_2(fx, fy, tx, ty, ai_data, shortest_time);
+			var jmp = tight_space_jump_down(fx, fy, tx, ty, ai_data, shortest_time);
 			if jmp[1] < shortest_time {
 				shortest_jump = jmp[0];
 				shortest_time = jmp[1];
@@ -904,14 +580,14 @@ function raycast(x1, y1, x2, y2, obj, step, w = 0) {
 	
 	var len = point_distance(x1, y1, x2, y2);
 	var rot = point_direction(x1, y1, x2, y2);
-	var c = dcos(rot);
-	var s = dsin(rot);
+	var cs = dcos(rot);
+	var sn = dsin(rot);
 	
 	var c = noone;
 	for(var l = 0; l < len; l += step) {
-	    var xx = x1+c*l;
-	    var yy = y1-s*l;
-		
+	    var xx = x1+cs*l;
+	    var yy = y1-sn*l;
+		draw_circle(xx, yy, 2, false);
 		if !is_array(obj) {
 			c = (w == 0 
 				? collision_point(xx, yy, obj, false, true)
@@ -934,11 +610,11 @@ function reversed_raycast(x1, y1, x2, y2, obj, step) {
 	
 	var len = point_distance(x1, y1, x2, y2);
 	var rot = point_direction(x1, y1, x2, y2);
-	var c = dcos(rot);
-	var s = dsin(rot);
+	var cs = dcos(rot);
+	var sn = dsin(rot);
 	
 	for(var l = 0; l < len; l += step) {
-	    if !collision_point(x1+c*l, y1-s*l, obj, false, true) return false;
+	    if !collision_point(x1+cs*l, y1-sn*l, obj, false, true) return false;
 	}
 
 	return true;

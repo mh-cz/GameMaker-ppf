@@ -6,7 +6,7 @@
     "path": "folders/Scripts.yy",
   },
   "resourceVersion": "1.0",
-  "name": "foreach_init",
+  "name": "ppf_script",
   "tags": [],
   "resourceType": "GMScript",
 }

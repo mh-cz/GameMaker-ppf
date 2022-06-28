@@ -1,5 +1,11 @@
 if keyboard_check_pressed(ord("R")) room_restart();
 
+if keyboard_check_pressed(ord("S")) {
+	Foreach ai_data inStruct ppf.AI Run {
+		ai_data.DEBUG.DRAW_AI_PATH = !ai_data.DEBUG.DRAW_AI_PATH;
+	}
+}
+
 draw_set_color(c_white);
 draw_set_alpha(1);
 
@@ -18,13 +24,13 @@ if mouse_check_button_pressed(mb_any) {
 		path = ppf_find_path(start_node.x, start_node.y, end_node.x, end_node.y, "Basic");
 	}
 }*/
-
 /*
+
 with(obj_node) {
-	if x == 320 and y == 384 {
+	if x == 512 and y == 448 {
 		Foreach ai_data inStruct ppf.AI Run {
-			if !ai_data.ACTIVE or !ai_data.DRAW_PATHS or Loop.key != "Speedy" continue;
-			var events = ppf_calc_jump(mid_x, mid_y, mx, my, ai_data, 1);
+			if !ai_data.ENABLED or !ai_data.DEBUG.DRAW_PATHS or Loop.key != "Speedy" continue;
+			var events = ppf_calc_jump(mid_x, mid_y, mx, my, ai_data, 0);
 			draw_text(10, 50, events);
 		}
 	}
@@ -37,11 +43,10 @@ with(obj_node) {
 	
 	var yoff = 0;
 	var xoff = 0;
-	visible = !ppf.HIDE_NODES;
 	
 	Foreach ai_data inStruct ppf.AI Run {
 		
-		if !ai_data.ACTIVE or !ai_data.DEBUG.DRAW_PATHS continue;
+		if !ai_data.ENABLED or !ai_data.DEBUG.DRAW_PATHS or (ppf.gen_done == 1 and !ai_data.DEBUG.DRAW_PATHS_AFTER_GEN_DONE) continue;
 		var neigs = neig_data[$ Loop.key];
 		draw_set_color(ai_data.DEBUG.DRAW_PATHS_COLOR);
 		

@@ -1,5 +1,4 @@
-if !ppf.gen_done exit;
-ai_data.DRAW_PATHS = false;
+if ppf.gen_done != 1 exit;
 
 //if mouse_check_button_pressed(mb_left) new_target = [mouse_x, mouse_y];
 
@@ -22,7 +21,7 @@ if grounded and new_target != 0 {
 
 if towards_node != noone {
 	
-	if node_num == 0 and vspd == 0 hspd = sign(towards_node.mid_x - x) * ai_data.SPEED;
+	if node_num == 0 and vspd == 0 hspd = sign(towards_node.mid_x - x) * ai.SPEED;
 	
 	var xdist = max(abs(hspd), 4);
 	var ydist = max(abs(vspd), 4);
@@ -35,7 +34,7 @@ if towards_node != noone {
 }
 
 grounded = vspd == 0 and place_meeting(x, y+2, ppf.SOLID_OBJ);
-if !grounded vspd += ai_data.GRAVITY else vspd = 0;
+if !grounded vspd += ai.GRAVITY else vspd = 0;
 
 if place_meeting(x+hspd, y, ppf.SOLID_OBJ) {
 	repeat(ceil(abs(hspd))) {

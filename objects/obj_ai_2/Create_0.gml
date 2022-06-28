@@ -1,5 +1,5 @@
 ai_name = "Speedy";
-ai_data = ppf.AI[$ ai_name];
+ai = ppf.AI[$ ai_name];
 
 vspd = 0;
 hspd = 0;
