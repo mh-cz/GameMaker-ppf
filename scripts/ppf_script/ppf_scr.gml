@@ -1,27 +1,35 @@
-/*
 function PPF_core() constructor {
 
 	worlds = {};
 	profiles = {};
 	
 	jump_arc = new PPF_jump_arc();
+	nodes = ds_list_create();
+	
+	
 }
 
 function PPF_profile(name) constructor {
 	
 	global.PPF.profiles[$ name] = self;
 	
-	spd = 10;
-	g = 0.3;
+	//
 	
-	jump_height = 200;
-	jump_height_min = 16;
-	jump_height_step = 16;
+	spd = 5;
+	g = 0.3;
 	
 	hitbox_width = 20;
 	hitbox_height = 30;
 	hitbox_extend = 4;
 	
+	jump_height = 200;
+	jump_height_min = 16;
+	jump_height_step = 16;
+	
+	fall_height = infinity;
+	
+	//
+
 	worlds = ds_list_create();
 	
 	static add_collision_world = function(cw_or_name) {
@@ -33,6 +41,7 @@ function PPF_profile(name) constructor {
 		
 		return self;
 	}
+	
 }
 
 function PPF_collision_world(name) constructor {
@@ -66,6 +75,12 @@ function PPF_collision_world(name) constructor {
 
 }
 
+function PPF_jump(vspd, hspd, elevation) constructor {
+	
+	self.vspd = vspd;
+	self.hspd = hspd;
+	self.elevation = elevation;
+}
 
 function PPF_shape() constructor {
 	
@@ -76,11 +91,11 @@ function PPF_shape() constructor {
 	self.bb_right = -infinity;
 	self.bb_bottom = -infinity;
 	
-	self.collide = true;
+	self.collision_enabled = true;
 	
 	static deactivate_outside = function(left, top, right, bottom) {
 		
-		collide = !(left > bb_right or right < bb_left or top > bb_bottom or bottom < bb_top);
+		collision_enabled = !(left > bb_right or right < bb_left or top > bb_bottom or bottom < bb_top);
 	}
 	
 	static add_point = function(px, py) {
@@ -113,7 +128,7 @@ function PPF_shape() constructor {
 			draw_line(this[0], this[1], next[0], next[1]);
 		}
 		*/
-		if collide draw_rectangle(bb_left, bb_top, bb_right, bb_bottom, true);
+		if collision_enabled draw_rectangle(bb_left, bb_top, bb_right, bb_bottom, true);
 		
 		return self;
 	}
@@ -153,6 +168,7 @@ function PPF_jump_arc() constructor {
 	self.hhe = 0;
 	self.shortest_jtime = infinity;
 	self.profile = noone;
+	self.elevation = 0;
 	
 	self.bb_top = 0;
 	self.bb_right = 0;
@@ -170,6 +186,7 @@ function PPF_jump_arc() constructor {
 		htb_extend = profile.hitbox_extend;
 		hwe = htb_w_half + profile.hitbox_extend;
 		hhe = htb_h_half + profile.hitbox_extend;
+		jump_height = profile.jump_height;
 		
 		// og coords
 		fx = from_x;
@@ -177,7 +194,11 @@ function PPF_jump_arc() constructor {
 		tx = to_x;
 		ty = to_y;
 		
-		// "sorted" coords
+		// quick check
+		collided = !is_possible(0);
+		if collided return self;
+		
+		// sorted coords
 		if tx < fx {
 			fx2 = tx;
 			fy2 = ty;
@@ -192,15 +213,15 @@ function PPF_jump_arc() constructor {
 		}
 
 		// arc bounding box
-		bb_top = (fy < ty ? min(fy, ty) : max(fy, ty)) - profile.jump_height - hhe;
+		bb_top = fy - profile.jump_height - hhe;
 		bb_bottom = max(fy, ty) + hhe;
 		bb_left = fx2 - hwe;
 		bb_right = tx2 + hwe;
-		
+
 		// turn off collision on shapes outside arc bbox
-		for(var w = 0; w < ds_list_size(profile.worlds); w++) {
+		for(var w = 0, wl = ds_list_size(profile.worlds); w < wl; w++) {
 			var world = profile.worlds[| w];
-			for(var i = 0; i < ds_list_size(world.shapes); i++) {
+			for(var i = 0, sl = ds_list_size(world.shapes); i < sl; i++) {
 				world.shapes[| i].deactivate_outside(bb_left, bb_top, bb_right, bb_bottom);
 			}
 		}
@@ -214,37 +235,51 @@ function PPF_jump_arc() constructor {
 		right_bottom_lim = ty2 + htb_h_half;
 		
 		// set limits
-		p_outer.set_limits(
-			left_lim, 
-			left_bottom_lim, 
-			0, 
-			center_x,
-			right_lim, 
-			right_bottom_lim
-		);
-		p_inner1.set_limits(
-			left_lim, 
-			left_bottom_lim, 
-			0, 
-			center_x,
-			right_lim, 
-			right_bottom_lim
-		);
-		p_inner2.set_limits(
-			left_lim, 
-			left_bottom_lim, 
-			0, 
-			center_x,
-			right_lim, 
-			right_bottom_lim
-		);
+		p_outer.set_limits(left_lim, left_bottom_lim, 0, center_x, right_lim, right_bottom_lim);
+		p_inner1.set_limits(left_lim, left_bottom_lim, 0, center_x, right_lim, right_bottom_lim);
+		p_inner2.set_limits(left_lim, left_bottom_lim, 0, center_x, right_lim, right_bottom_lim);
 		
-		if !world_col(profile) draw();
+		// stoodis
+		var result = jump_and_collide(profile);
+		if result != undefined draw();
 		
 		return self;
 	}
 	
-	static world_col = function(profile) {
+	static is_possible = function() {
+		/*
+			var ej = sqrt(2 * grav * (cell_size * jh - elevated_h));
+			j = sqrt(2 * grav * cell_size * jh);
+			if j > jump j = jump;
+			jh += ppf.JUMP_PRECISION;
+		
+			var events = [];
+			var col = false;
+		
+			var yoff = (fy-elevated_h) - ty;
+			var yh = sqr(ej) - 2 * grav * yoff;
+			if yh < 4 continue; // target too high
+			var t = (ej + sqrt(yh)) / grav;
+			if t + elevated_h >= shortest_time continue; // shorter exists
+			var hdiff = (tx - fx) / (t * spd);
+			if abs(hdiff) > 1 continue; // target too far
+		*/
+		
+		vspd = sqrt(2 * g * jump_height);
+		
+		var ydiff = (vspd * vspd) - (2 * g * (fy - ty));
+		if ydiff <= 4 return false; // target too high
+		
+		jtime = (vspd + sqrt(ydiff)) / g;
+		if jtime > shortest_jtime return false // shorter jump exists
+		
+		hspd = ((tx - fx) / (jtime * spd)) * spd;
+		if abs(hspd) > spd or hspd == 0 return false // target too far
+		
+		return true;
+	}
+	
+	static jump_and_collide = function(profile) {
 		
 		for(
 		jump_height = profile.jump_height_min; 
@@ -258,7 +293,7 @@ function PPF_jump_arc() constructor {
 				var world = profile.worlds[| w];
 				for(var i = 0; i < ds_list_size(world.shapes); i++) {
 					var shape = world.shapes[| i];
-					if !shape.collide continue;
+					if !shape.collision_enabled continue;
 					
 					if self.shape_point_between(shape)
 					or p_outer.shape_intersection(shape) 
@@ -271,24 +306,15 @@ function PPF_jump_arc() constructor {
 				if collided break;
 			}
 			if collided continue;
-			break;
+			return new PPF_jump(vspd, hspd, elevation);
 		}
 		
-		return collided;
+		return undefined;
 	}
 	
 	static calc_jump_params = function() {
 		
-		vspd = sqrt(2 * g * jump_height);
-		
-		var ydiff = (vspd * vspd) - (2 * g * (fy - ty));
-		if ydiff <= 8 return false; // target too high
-		
-		jtime = (vspd + sqrt(ydiff)) / g;
-		if jtime > shortest_jtime return false // shorter jump exists
-		
-		hspd = ((tx - fx) / (jtime * spd)) * spd;
-		if abs(hspd) > spd or hspd == 0 return false // target too far
+		if !is_possible() return false;
 
 		var hsign = sign(hspd);
 
@@ -296,9 +322,6 @@ function PPF_jump_arc() constructor {
 		var pfraq = pos_t(jtime * (0.7 - (fy > ty) * 0.4));
 		
 		top_lim = fy - jump_height - hhe;
-		
-		draw_set_color(c_red);
-		draw_line(left_lim, top_lim, right_lim, top_lim);
 		
 		p_outer.from_3_points(
 			fx - hwe * hsign,
@@ -352,14 +375,14 @@ function PPF_jump_arc() constructor {
 				fy + yoff + htb_h_half, 
 				true);	
 		}
-		
+		/*
 		draw_set_color(c_lime);
 		p_inner1.draw();
 		draw_set_color(c_aqua);
 		p_inner2.draw();
 		draw_set_color(c_red);
 		p_outer.draw();
-		
+		*/
 		return self;
 	}
 	
@@ -442,7 +465,7 @@ function PPF_parabola(a = 0.1, b = 0, c = 0) constructor {
 
 		var bm = b - m;
 	    var discriminant = bm * bm - 4 * a * (c - d);
-	    if discriminant < 0.0000001 return undefined;
+	    if discriminant < 0.001 return undefined;
 
 		var sq = sqrt(discriminant);
 	    var x1 = (-bm - sq) / (2 * a);
@@ -490,9 +513,8 @@ function PPF_parabola(a = 0.1, b = 0, c = 0) constructor {
 		xx2 = pts[2];
 		yy2 = pts[3];
 		
-		return (yy1 > tlim and yy2 > tlim) 
-			and ((xx1 > x1 and xx1 < x2 and xx1 > llim and yy1 < lblim) 
-			  or (xx2 > x1 and xx2 < x2 and xx2 < rlim and yy2 < rblim));
+		return (xx1 > x1 and xx1 < x2 and xx1 > llim and yy1 < lblim and yy1 > tlim)
+			or (xx2 > x1 and xx2 < x2 and xx2 < rlim and yy2 < rblim and yy2 > tlim);
 	}
 	
 	static rectangle_intersection = function(x1, y1, x2, y2) {
@@ -517,7 +539,13 @@ function PPF_parabola(a = 0.1, b = 0, c = 0) constructor {
 	
 }
 
-
+function PPF_node() constructor {
+	
+	self.pos_x = 0;
+	self.pos_y = 0;
+	
+	self.neighbours = ds_list_create();
+}
 
 function print_return(str, ret = false) {
 	show_debug_message(str);
