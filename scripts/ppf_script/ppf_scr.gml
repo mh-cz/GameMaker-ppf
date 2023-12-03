@@ -24,7 +24,7 @@ function PPF_profile(name) constructor {
 	
 	jump_height = 200;
 	jump_height_min = 16;
-	jump_height_step = 16;
+	jump_height_step = 32;
 	
 	fall_height = infinity;
 	elevation_step = 32;
@@ -133,8 +133,9 @@ function PPF_shape() constructor {
 	
 	static segment_rectangle_intersection = function(x1, y1, x2, y2, rx1, ry1, rx2, ry2) {
 
-		if point_in_rectangle(x1, y1, rx1+1, ry1+1, rx2-1, ry2-1) return true;
-		if point_in_rectangle(x2, y2, rx1+1, ry1+1, rx2-1, ry2-1) return true;
+		if point_in_rectangle(x1, y1, rx1+1, ry1+1, rx2-1, ry2-1)
+		or point_in_rectangle(x2, y2, rx1+1, ry1+1, rx2-1, ry2-1)
+			return true;
 
 		if ((x1 <= rx1 and x2 <= rx1)
 		or (y1 <= ry1 and y2 <= ry1)
@@ -229,15 +230,14 @@ function PPF_jump_arc() constructor {
 		hhe = htb_h_half + profile.hitbox_extend;
 		jump_height = profile.jump_height;
 		
-		jump_elevation = 0;
-		fall_elevation = 0;
-		
 		// og coords
 		fx = from_x;
 		fy = from_y;
 		tx = to_x;
 		ty = to_y;
 		
+		jump_elevation = 0;
+		fall_elevation = 0;
 		efy = fy;
 		ety = ty;
 		
@@ -273,27 +273,31 @@ function PPF_jump_arc() constructor {
 			}
 		}
 
-		// valid collision point limits
+		self.calc_limits();
+		
+		// stoodis
+		var jresult = undefined//self.simple_jump(profile);
+		//if !jresult and ty > fy jresult = self.elevated_fall(profile);
+		//if !jresult jresult = self.elevated_jump(profile);
+		if !jresult jresult = self.elevated_jump_and_fall(profile);
+		
+		if jresult self.draw();
+		
+		return jresult;
+	}
+	
+	static calc_limits = function() {
+		
 		center_x = fx2 + (tx2 - fx2) * 0.5;
-		top_lim = 0;
 		left_lim = fx2 - htb_w_half;
-		left_bottom_lim = fy2 + htb_h_half;
+		left_bottom_lim = fy2 - (fx < tx ? jump_elevation : fall_elevation) + htb_h_half;
 		right_lim = tx2 + htb_w_half;
-		right_bottom_lim = ty2 + htb_h_half;
+		right_bottom_lim = ty2 - (fx > tx ? jump_elevation : fall_elevation) + htb_h_half;
 		
 		// set limits
 		p_outer.set_limits(left_lim, left_bottom_lim, 0, center_x, right_lim, right_bottom_lim);
 		p_inner1.set_limits(left_lim, left_bottom_lim, 0, center_x, right_lim, right_bottom_lim);
-		p_inner2.set_limits(left_lim, left_bottom_lim, 0, center_x, right_lim, right_bottom_lim);
-		
-		// stoodis
-		var jresult = self.simple_jump(profile);
-		if !jresult jresult = self.elevated_jump(profile);
-		if !jresult jresult = self.elevated_jump_and_fall(profile);
-		
-		if jresult draw();
-		
-		return jresult;
+		p_inner2.set_limits(left_lim, left_bottom_lim, 0, center_x, right_lim, right_bottom_lim);	
 	}
 	
 	static is_possible = function() {
@@ -339,7 +343,9 @@ function PPF_jump_arc() constructor {
 					collided = self.shape_point_between(shape)
 						or p_inner1.shape_intersection(shape) 
 						or p_inner2.shape_intersection(shape)
-						or p_outer.shape_intersection(shape);
+						or p_outer.shape_intersection(shape)
+						or shape.rectangle_intersection(tx - htb_w_half, ety - htb_h_half - 4, tx + htb_w_half, ty + htb_h_half)
+						or shape.rectangle_intersection(fx - htb_w_half, efy - htb_h_half - 4, fx + htb_w_half, fy + htb_h_half);
 							
 					if collided break;
 				}
@@ -359,6 +365,8 @@ function PPF_jump_arc() constructor {
 		jump_elevation = profile.elevation_step; 
 		jump_elevation < profile.jump_height; 
 		jump_elevation += profile.elevation_step) {
+			
+			self.calc_limits();
 			
 			for(
 			var jh = profile.jump_height_min + jump_elevation; 
@@ -382,7 +390,58 @@ function PPF_jump_arc() constructor {
 						collided = self.shape_point_between(shape)
 							or p_inner1.shape_intersection(shape) 
 							or p_inner2.shape_intersection(shape)
-							or p_outer.shape_intersection(shape);
+							or p_outer.shape_intersection(shape)
+							or shape.rectangle_intersection(tx - htb_w_half, ety - htb_h_half - 4, tx + htb_w_half, ty + htb_h_half)
+							or shape.rectangle_intersection(fx - htb_w_half, efy - htb_h_half - 4, fx + htb_w_half, fy + htb_h_half);
+							
+						if collided break;
+					}
+					if collided break;
+				}
+				if collided continue;
+				return new PPF_jump(vspd, hspd, jump_elevation);
+			}
+		}
+		
+		return undefined;
+	}
+	
+	static elevated_fall = function(profile) {
+		
+		jump_elevation = 0;
+		
+		for(
+		fall_elevation = 0; 
+		fall_elevation < profile.jump_height; 
+		fall_elevation += profile.elevation_step) {
+
+				self.calc_limits();
+
+				for(
+				var jh = profile.jump_height_min + jump_elevation; 
+				jh < profile.jump_height; 
+				jh += profile.jump_height_step) {
+				
+				collided = true;
+				
+				jump_height = jh - jump_elevation;
+				if jump_height < profile.jump_height_min continue;
+				
+				if !self.calc_jump_params() continue;
+
+				collided = false;
+				for(var w = 0; w < ds_list_size(profile.worlds); w++) {
+					var world = profile.worlds[| w];
+					for(var i = 0; i < ds_list_size(world.shapes); i++) {
+						var shape = world.shapes[| i];
+						if !shape.collision_enabled continue;
+					
+						collided = self.shape_point_between(shape)
+							or p_inner1.shape_intersection(shape) 
+							or p_inner2.shape_intersection(shape)
+							or p_outer.shape_intersection(shape)
+							or shape.rectangle_intersection(tx - htb_w_half, ety - htb_h_half - 4, tx + htb_w_half, ty + htb_h_half)
+							or shape.rectangle_intersection(fx - htb_w_half, efy - htb_h_half - 4, fx + htb_w_half, fy + htb_h_half);
 							
 						if collided break;
 					}
@@ -408,8 +467,10 @@ function PPF_jump_arc() constructor {
 			jump_elevation < profile.jump_height; 
 			jump_elevation += profile.elevation_step) {
 			
-				for(
-				var jh = profile.jump_height_min + jump_elevation; 
+				self.calc_limits();
+			
+				for(var 
+				jh = profile.jump_height_min + jump_elevation; 
 				jh < profile.jump_height; 
 				jh += profile.jump_height_step) {
 				
@@ -431,7 +492,8 @@ function PPF_jump_arc() constructor {
 								or p_inner1.shape_intersection(shape) 
 								or p_inner2.shape_intersection(shape)
 								or p_outer.shape_intersection(shape)
-								or shape.rectangle_intersection(tx - htb_w_half, ety - htb_h_half, tx + htb_w_half, ty + htb_h_half);
+								or shape.rectangle_intersection(tx - htb_w_half, ety - htb_h_half - 4, tx + htb_w_half, ty + htb_h_half)
+								or shape.rectangle_intersection(fx - htb_w_half, efy - htb_h_half - 4, fx + htb_w_half, fy + htb_h_half);
 							
 							if collided break;
 						}
@@ -446,7 +508,7 @@ function PPF_jump_arc() constructor {
 		
 		return undefined;
 	}
-	
+
 	static calc_jump_params = function() {
 		
 		efy = fy - jump_elevation;
@@ -462,31 +524,31 @@ function PPF_jump_arc() constructor {
 		top_lim = efy - jump_height - hhe;
 		
 		p_outer.from_3_points(
-			fx - hwe * hsign,
+			fx - (htb_w_half + 1) * hsign,
 			efy - hhe,
 			fx + pfraq[0] + hwe * (fx + pfraq[0] < center_x ? -1 : 1),
 			efy + pfraq[1] - hhe,
-			tx + hwe * hsign,
+			tx + (htb_w_half + 1) * hsign,
 			ety - hhe
 		)
 		.tlim = top_lim;
 		
 		p_inner1.from_3_points(
-			fx - hwe,
+			fx - htb_w_half - 1,
 			efy + (htb_h_half),
 			fx + pmid[0] - hwe,
 			efy + pmid[1] + hhe,
-			tx - hwe,
+			tx - htb_w_half - 1,
 			ety + (htb_h_half)
 		)
 		.tlim = top_lim;
 		
 		p_inner2.from_3_points(
-			fx + hwe,
+			fx + htb_w_half + 1,
 			efy + (htb_h_half),
 			fx + pmid[0] + hwe,
 			efy + pmid[1] + hhe,
-			tx + hwe,
+			tx + htb_w_half + 1,
 			ety + (htb_h_half)
 		)
 		.tlim = top_lim;
@@ -619,7 +681,7 @@ function PPF_parabola(a = 0.1, b = 0, c = 0) constructor {
 
 		var bm = b - m;
 	    var discriminant = bm * bm - 4 * a * (c - d);
-	    if discriminant < 0.001 return undefined;
+	    if discriminant < 0.001 or is_nan(discriminant) return undefined;
 
 		var sq = sqrt(discriminant);
 	    var x1 = (-bm - sq) / (2 * a);
@@ -665,9 +727,9 @@ function PPF_parabola(a = 0.1, b = 0, c = 0) constructor {
 		xx1 = pts[0];
 		yy1 = pts[1];
 		xx2 = pts[2];
-		yy2 = pts[3];
+		yy2 = pts[3];	
 		
-		return (xx1 > x1 and xx1 < x2 and xx1 > llim and yy1 < lblim and yy1 > tlim)
+		return (xx1 > x1 and xx1 < x2 and xx1 > llim and yy1 < lblim and yy1 > tlim) 
 			or (xx2 > x1 and xx2 < x2 and xx2 < rlim and yy2 < rblim and yy2 > tlim);
 	}
 	
@@ -700,6 +762,8 @@ function PPF_node() constructor {
 	
 	self.neighbours = ds_list_create();
 }
+
+
 
 function print_return(str, ret = false) {
 	show_debug_message(str);
