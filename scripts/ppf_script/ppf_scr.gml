@@ -276,9 +276,9 @@ function PPF_jump_arc() constructor {
 		self.calc_limits();
 		
 		// stoodis
-		var jresult = undefined//self.simple_jump(profile);
-		//if !jresult and ty > fy jresult = self.elevated_fall(profile);
-		//if !jresult jresult = self.elevated_jump(profile);
+		var jresult = self.simple_jump(profile);
+		if !jresult and ty > fy jresult = self.elevated_fall(profile);
+		if !jresult jresult = self.elevated_jump(profile);
 		if !jresult jresult = self.elevated_jump_and_fall(profile);
 		
 		if jresult self.draw();
@@ -344,8 +344,8 @@ function PPF_jump_arc() constructor {
 						or p_inner1.shape_intersection(shape) 
 						or p_inner2.shape_intersection(shape)
 						or p_outer.shape_intersection(shape)
-						or shape.rectangle_intersection(tx - htb_w_half, ety - htb_h_half - 4, tx + htb_w_half, ty + htb_h_half)
-						or shape.rectangle_intersection(fx - htb_w_half, efy - htb_h_half - 4, fx + htb_w_half, fy + htb_h_half);
+						or shape.rectangle_intersection(tx - htb_w_half, ety - hhe, tx + htb_w_half, ty + htb_h_half)
+						or shape.rectangle_intersection(fx - htb_w_half, efy - hhe, fx + htb_w_half, fy + htb_h_half);
 							
 					if collided break;
 				}
@@ -391,8 +391,8 @@ function PPF_jump_arc() constructor {
 							or p_inner1.shape_intersection(shape) 
 							or p_inner2.shape_intersection(shape)
 							or p_outer.shape_intersection(shape)
-							or shape.rectangle_intersection(tx - htb_w_half, ety - htb_h_half - 4, tx + htb_w_half, ty + htb_h_half)
-							or shape.rectangle_intersection(fx - htb_w_half, efy - htb_h_half - 4, fx + htb_w_half, fy + htb_h_half);
+							or shape.rectangle_intersection(tx - htb_w_half, ety - hhe, tx + htb_w_half, ty + htb_h_half)
+							or shape.rectangle_intersection(fx - htb_w_half, efy - hhe, fx + htb_w_half, fy + htb_h_half);
 							
 						if collided break;
 					}
@@ -440,8 +440,8 @@ function PPF_jump_arc() constructor {
 							or p_inner1.shape_intersection(shape) 
 							or p_inner2.shape_intersection(shape)
 							or p_outer.shape_intersection(shape)
-							or shape.rectangle_intersection(tx - htb_w_half, ety - htb_h_half - 4, tx + htb_w_half, ty + htb_h_half)
-							or shape.rectangle_intersection(fx - htb_w_half, efy - htb_h_half - 4, fx + htb_w_half, fy + htb_h_half);
+							or shape.rectangle_intersection(tx - htb_w_half, ety - hhe, tx + htb_w_half, ty + htb_h_half)
+							or shape.rectangle_intersection(fx - htb_w_half, efy - hhe, fx + htb_w_half, fy + htb_h_half);
 							
 						if collided break;
 					}
@@ -492,17 +492,16 @@ function PPF_jump_arc() constructor {
 								or p_inner1.shape_intersection(shape) 
 								or p_inner2.shape_intersection(shape)
 								or p_outer.shape_intersection(shape)
-								or shape.rectangle_intersection(tx - htb_w_half, ety - htb_h_half - 4, tx + htb_w_half, ty + htb_h_half)
-								or shape.rectangle_intersection(fx - htb_w_half, efy - htb_h_half - 4, fx + htb_w_half, fy + htb_h_half);
+								or shape.rectangle_intersection(tx - htb_w_half, ety - hhe, tx + htb_w_half, ty + htb_h_half)
+								or shape.rectangle_intersection(fx - htb_w_half, efy - hhe, fx + htb_w_half, fy + htb_h_half);
 							
 							if collided break;
 						}
 						if collided break;
 					}
-					if collided break;
+					if collided continue;
+					return new PPF_jump(vspd, hspd, jump_elevation);
 				}
-				if collided continue;
-				return new PPF_jump(vspd, hspd, jump_elevation);
 			}
 		}
 		
